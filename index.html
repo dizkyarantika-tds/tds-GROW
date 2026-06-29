@@ -2,170 +2,930 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Game Launch Tracker</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GROW: static for demo purposes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f9f9f7; color: #1a1a19; padding: 1.5rem; }
-  h1 { font-size: 18px; font-weight: 500; margin-bottom: 4px; }
-  .subtitle { font-size: 13px; color: #888780; margin-bottom: 1.25rem; }
-  .filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 1rem; }
-  select { font-size: 13px; padding: 6px 10px; border-radius: 8px; border: 0.5px solid #ccc; background: #fff; color: #1a1a19; cursor: pointer; }
-  .table-wrap { border: 0.5px solid #e0e0dc; border-radius: 12px; overflow: hidden; overflow-x: auto; background: #fff; }
-  table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 780px; }
-  th { text-align: left; font-weight: 500; font-size: 12px; color: #888; padding: 10px 14px; background: #f5f5f2; border-bottom: 0.5px solid #e0e0dc; white-space: nowrap; }
-  td { padding: 9px 14px; border-bottom: 0.5px solid #f0f0ec; vertical-align: middle; }
-  tr:last-child td { border-bottom: none; }
-  tr:hover td { background: #fafaf8; }
-  .badge { display: inline-block; font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 99px; }
-  .nova { background: #E6F1FB; color: #0C447C; }
-  .mythos { background: #EEEDFE; color: #3C3489; }
-  .ludios { background: #FAEEDA; color: #633806; }
-  .zephyr { background: #E1F5EE; color: #085041; }
-  .central { background: #F1EFE8; color: #444441; }
-  .date-past { color: #888; font-style: italic; }
-  .date-soon { color: #854F0B; font-weight: 500; }
-  .date-unset { color: #bbb; font-style: italic; }
-  .unset { color: #bbb; font-style: italic; }
-  code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 12px; background: #f3f3f0; padding: 1px 5px; border-radius: 4px; }
-  .count { font-size: 12px; color: #aaa; text-align: right; margin-top: 8px; }
-  .legend { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 1rem; font-size: 12px; color: #888; align-items: center; }
-  .legend span { display: flex; align-items: center; gap: 4px; }
-  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+:root { color-scheme: light; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: #f8f9fb;
+  color: #1a1a2e;
+  font-size: 14px;
+}
+.header {
+  background: white;
+  border-bottom: 1px solid #e5e7eb;
+  padding: 16px 24px 0;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.header-title-block { display: flex; flex-direction: column; gap: 1px; }
+.header h1 { font-size: 22px; font-weight: 800; color: #111827; letter-spacing: -0.5px; line-height: 1; }
+.header-subtitle { font-size: 10px; font-weight: 500; color: #9ca3af; letter-spacing: 0.6px; text-transform: uppercase; margin-top: 3px; }
+.last-updated { font-size: 11px; color: #9ca3af; }
+.tabs { display: flex; }
+.tab-btn {
+  padding: 10px 20px;
+  border: none;
+  background: transparent;
+  color: #6b7280;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s;
+}
+.tab-btn:hover { color: #374151; }
+.tab-btn.active { color: #4f46e5; border-bottom-color: #4f46e5; }
+.main { padding: 20px 24px; }
+.status-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  font-size: 12px;
+  color: #6b7280;
+}
+.dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; flex-shrink: 0; }
+.dot.loading { background: #f59e0b; animation: pulse 1s infinite; }
+.dot.error { background: #ef4444; }
+@keyframes pulse { 0%,100%{opacity:1}50%{opacity:.3} }
+.card {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+.card-header {
+  padding: 14px 18px;
+  border-bottom: 1px solid #f3f4f6;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.card-title { font-size: 14px; font-weight: 600; color: #111827; }
+.card-sub { font-size: 11px; color: #9ca3af; margin-top: 2px; }
+.flag-item {
+  display: flex;
+  gap: 8px;
+  padding: 8px 14px;
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+  border-radius: 6px;
+  font-size: 12px;
+  color: #92400e;
+  margin-bottom: 6px;
+}
+table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 800px; }
+th {
+  text-align: left;
+  padding: 9px 14px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #6b7280;
+  background: #f9fafb;
+  white-space: nowrap;
+  border-bottom: 1px solid #e5e7eb;
+}
+td {
+  padding: 10px 14px;
+  border-bottom: 1px solid #f3f4f6;
+  vertical-align: middle;
+  color: #374151;
+}
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: #fafafa; }
+.game-name { font-weight: 600; color: #111827; white-space: nowrap; }
+.game-sub { font-size: 11px; color: #6b7280; font-family: monospace; margin-top: 2px; }
+.game-no-an { font-size: 11px; color: #dc2626; margin-top: 2px; }
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  margin: 1px 2px;
+}
+.b-green  { background: #dcfce7; color: #166534; }
+.b-red    { background: #fee2e2; color: #991b1b; }
+.b-yellow { background: #fef9c3; color: #854d0e; }
+.b-purple { background: #ede9fe; color: #5b21b6; }
+.b-blue   { background: #dbeafe; color: #1d4ed8; }
+.b-amber  { background: #fef3c7; color: #92400e; }
+.b-gray   { background: #f3f4f6; color: #6b7280; }
+.ck { font-size: 14px; }
+.ck-ok   { color: #16a34a; }
+.ck-fail { color: #dc2626; }
+.ck-warn { color: #d97706; cursor: help; }
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  transition: all 0.15s;
+}
+.btn-go      { background: #4f46e5; color: white; }
+.btn-go:hover{ background: #4338ca; }
+.btn-refresh { background: white; border: 1px solid #d1d5db; color: #374151; }
+.btn-refresh:hover { background: #f9fafb; }
+.btn-run     { background: #4f46e5; color: white; padding: 8px 18px; font-size: 13px; }
+.btn-run:hover { background: #4338ca; }
+.chips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 10px 18px;
+  border-bottom: 1px solid #f3f4f6;
+  background: #fafafa;
+}
+.filter-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 10px 18px;
+  border-bottom: 1px solid #f3f4f6;
+  background: white;
+}
+.filter-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+}
+.studio-chip {
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid #d1d5db;
+  cursor: pointer;
+  background: white;
+  color: #374151;
+  transition: all 0.15s;
+}
+.studio-chip.on  { background: #4f46e5; color: white; border-color: #4f46e5; }
+.studio-chip.off { background: white;   color: #9ca3af; border-color: #e5e7eb; }
+.issues-card {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+.issues-card-header {
+  padding: 12px 18px;
+  border-bottom: 1px solid #f3f4f6;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fffbeb;
+}
+.issues-card-title { font-size: 13px; font-weight: 600; color: #92400e; }
+.issue-section { border-bottom: 1px solid #f3f4f6; }
+.issue-section:last-child { border-bottom: none; }
+.issue-game-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px 6px;
+  flex-wrap: wrap;
+}
+.issue-game-name { font-weight: 600; font-size: 13px; color: #111827; }
+.issue-bullets { list-style: none; padding: 2px 18px 12px; margin: 0; }
+.issue-bullet { display: flex; align-items: flex-start; gap: 8px; padding: 4px 0; }
+.ib-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; margin-top: 5px; }
+.ip-block .ib-dot  { background: #ef4444; }
+.ip-warn  .ib-dot  { background: #f59e0b; }
+.ip-action .ib-dot { background: #3b82f6; }
+.ib-text { font-size: 12px; color: #374151; line-height: 1.5; }
+.dq-controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 14px 18px;
+  border-bottom: 1px solid #f3f4f6;
+}
+.dq-select {
+  padding: 7px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #374151;
+  background: white;
+}
+#dq-game { min-width: 280px; }
+#dq-days { min-width: 130px; }
+.loading-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  color: #9ca3af;
+  gap: 10px;
+  font-size: 13px;
+}
+.spinner {
+  width: 18px; height: 18px;
+  border: 2px solid #e5e7eb;
+  border-top-color: #4f46e5;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.empty-state { text-align: center; padding: 40px; color: #9ca3af; font-size: 13px; }
+.tab-pane { display: none; }
+.tab-pane.active { display: block; }
+.week-banner { border-left: 4px solid #4f46e5; }
+.week-banner .card-header { background: linear-gradient(135deg, #f5f3ff, #ede9fe); }
+.overflow-x { overflow-x: auto; }
+td.center { text-align: center; }
+.tier-section { margin: 16px 0; }
+.tier-header { font-size: 13px; font-weight: 700; color: #374151; margin: 16px 0 8px; padding: 6px 10px; background: #f3f4f6; border-radius: 6px; border-left: 3px solid #6366f1; }
+.dq-check { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 12px; overflow: hidden; }
+.dq-check-header { display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: #f9fafb; border-bottom: 1px solid #e5e7eb; flex-wrap: wrap; }
+.dq-check-title { font-family: monospace; font-size: 12px; font-weight: 600; color: #1f2937; flex: 1; }
+.dq-summaries { display: flex; gap: 8px; padding: 8px 14px; flex-wrap: wrap; border-bottom: 1px solid #f3f4f6; }
+.dq-summary { font-size: 12px; color: #374151; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 4px; padding: 3px 8px; }
+.dq-summary.warn { background: #fffbeb; border-color: #fde68a; }
+.dq-summary.bad  { background: #fef2f2; border-color: #fecaca; }
+.dq-table-wrap { padding: 0; overflow: auto; max-height: 340px; }
+.dq-table-wrap table { width: max-content; min-width: 100%; font-size: 12px; }
+.dq-table-wrap thead th { position: sticky; top: 0; z-index: 2; background: #f9fafb; border-bottom: 1px solid #e5e7eb; }
+.dq-flags-inner { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 14px; border-bottom: 1px solid #f3f4f6; }
+.dq-flag { display: inline-flex; align-items: center; padding: 2px 8px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 4px; font-size: 11px; color: #dc2626; font-weight: 500; }
+.dq-platform-filter { display: none; align-items: center; gap: 8px; margin-left: auto; }
+.pf-btn {
+  padding: 4px 12px;
+  border-radius: 12px;
+  border: 1px solid #d1d5db;
+  background: white;
+  color: #6b7280;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: inherit;
+}
+.pf-btn.active { background: #4f46e5; color: white; border-color: #4f46e5; }
+.dq-placeholder { padding: 12px 14px; color: #9ca3af; font-size: 12px; font-style: italic; }
 </style>
 </head>
 <body>
 
-<h1>Game launch tracker</h1>
-<p class="subtitle">Source: #game-launch-setup &nbsp;·&nbsp; Last updated 1 Jun 2026</p>
-
-<div class="filters">
-  <select id="studioFilter" onchange="render()">
-    <option value="">All studios</option>
-    <option>Nova</option>
-    <option>Mythos</option>
-    <option>Ludios</option>
-    <option>Zephyr</option>
-    <option>Central Tech</option>
-  </select>
-  <select id="teamFilter" onchange="render()">
-    <option value="">All teams</option>
-    <option>Polaris</option>
-    <option>Hades</option>
-    <option>Odyssey</option>
-    <option>Cerberus</option>
-    <option>Classic Games</option>
-    <option>Zephyr</option>
-    <option>Reactor</option>
-  </select>
+<div class="header">
+  <div class="header-top">
+    <div class="header-title-block">
+      <h1>GROW</h1>
+      <span class="header-subtitle">Game Release Onboarding Workflow</span>
+    </div>
+    <span class="last-updated" id="last-updated">Snapshot · 25 Jun 2026</span>
+  </div>
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('radar')">Game Release</button>
+    <button class="tab-btn" onclick="switchTab('week')">ETL Process</button>
+    <button class="tab-btn" onclick="switchTab('dq')">Data Quality</button>
+  </div>
 </div>
 
-<div class="legend">
-  <span>Soft launch date:</span>
-  <span><span class="dot" style="background:#854F0B"></span> Within 30 days</span>
-  <span><span class="dot" style="background:#aaa"></span> Past</span>
-  <span><span class="dot" style="background:#ccc"></span> Not set</span>
-</div>
+<div class="main">
+  <div class="status-bar">
+    <div class="dot" id="status-dot"></div>
+    <span id="status-text">15 games loaded</span>
+    <button class="btn btn-refresh" style="margin-left:auto" onclick="alert('Static snapshot — live queries not available.')">↺ Refresh</button>
+  </div>
 
-<div class="table-wrap">
-  <table>
-    <thead>
-      <tr>
-        <th>App name</th>
-        <th>Studio</th>
-        <th>Team</th>
-        <th>Analytical name</th>
-        <th>Product manager</th>
-        <th>Soft launch date</th>
-      </tr>
-    </thead>
-    <tbody id="tbody"></tbody>
-  </table>
+  <div class="tab-pane active" id="tab-radar">
+    <div id="radar-issues"></div>
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Upcoming Releases</div>
+          <div class="card-sub">Snowflake · Jira · Calendar</div>
+        </div>
+        <div class="chips" id="radar-chips" style="padding:0;border:none;background:transparent;gap:6px"></div>
+      </div>
+      <div class="filter-row" id="studio-filter">
+        <span class="filter-label">Studio</span>
+        <div id="studio-chips" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+      </div>
+      <div class="overflow-x">
+        <div id="radar-table"></div>
+      </div>
+    </div>
+    <div class="card" id="released-card" style="margin-top:16px;display:none">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Now Live</div>
+          <div class="card-sub">Games past their soft launch date</div>
+        </div>
+        <div class="chips" id="released-chips" style="padding:0;border:none;background:transparent;gap:6px"></div>
+      </div>
+      <div class="overflow-x">
+        <div id="released-table"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-pane" id="tab-week">
+    <div class="card week-banner">
+      <div class="card-header">
+        <div>
+          <div class="card-title">ETL Process</div>
+          <div class="card-sub" id="week-label"></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <div id="week-summary-chips" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+          <button class="btn btn-refresh" onclick="alert('Static snapshot — live queries not available.')" style="font-size:11px;padding:4px 10px;white-space:nowrap">↺ Refresh Jira</button>
+        </div>
+      </div>
+      <div class="filter-row" id="week-studio-filter">
+        <span class="filter-label">Studio</span>
+        <div id="week-studio-chips" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+      </div>
+      <div id="week-table"></div>
+    </div>
+  </div>
+
+  <div class="tab-pane" id="tab-dq">
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Data Quality Checks</div>
+          <div class="card-sub">Run checks across Snowflake tables for a specific game</div>
+        </div>
+      </div>
+      <div class="dq-controls">
+        <select class="dq-select" id="dq-game">
+          <option value="">Select a game...</option>
+          <option value="colorflowsort" selected>Color Flow Sort  (colorflowsort)</option>
+          <option value="puzzleguess">Puzzle Guesser  (puzzleguess)</option>
+          <option value="nutmaster">Nut Master  (nutmaster)</option>
+          <option value="capydoku">Capydoku  (capydoku)</option>
+          <option value="lumina">Lumina  (lumina)</option>
+        </select>
+        <select class="dq-select" id="dq-days">
+          <option value="7">Last 7 days</option>
+          <option value="14" selected>Last 14 days</option>
+          <option value="30">Last 30 days</option>
+        </select>
+        <button class="btn btn-run" onclick="alert('Static snapshot — live queries not available.\n\nShowing pre-loaded results for Color Flow Sort (L14D).')">▶ Run Checks</button>
+        <div class="dq-platform-filter" id="dq-platform-filter" style="display:flex">
+          <span style="font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.04em">Platform</span>
+          <button class="pf-btn active" onclick="filterDQPlatform('all',this)">All</button>
+          <button class="pf-btn" onclick="filterDQPlatform('android',this)">Android</button>
+          <button class="pf-btn" onclick="filterDQPlatform('ios',this)">iOS</button>
+        </div>
+      </div>
+      <div class="overflow-x">
+        <div id="dq-results"><div class="chips">  <span class="badge b-gray">L14D · colorflowsort</span></div><div class="tier-header">🔴 Tier 1 — Presence &amp; Consistency</div><div class="dq-check">  <div class="dq-check-header">    <span class="dq-check-title">tds_db.public.events_production_union</span>    <span class="badge b-green">✓ Events found</span>  </div>  <div class="dq-summaries" id="dqsums_dqchk_0">    <span class="dq-summary">Total events: 38,934</span>    <span class="dq-summary">Platforms firing: android, ios</span>    <span class="dq-summary">Top event by users: App_First_Open (96% of users)</span>  </div>  <div class="dq-flags" id="dqflags_dqchk_0"></div>  <div class="dq-table-wrap"><table><thead><tr><th>Platform</th><th>Event Name</th><th>Total Events</th><th>Distinct Users</th><th>Total Users</th><th>% Users</th></tr></thead><tbody><tr data-platform="android"><td>android</td><td>App_First_Open</td><td>145</td><td>145</td><td>151</td><td>96</td></tr><tr data-platform="ios"><td>ios</td><td>App_First_Open</td><td>1</td><td>1</td><td>1</td><td>100</td></tr><tr data-platform="android"><td>android</td><td>App_Start_Time</td><td>183</td><td>64</td><td>151</td><td>42.40</td></tr><tr data-platform="android"><td>android</td><td>App_Start_Time_First</td><td>145</td><td>145</td><td>151</td><td>96</td></tr><tr data-platform="ios"><td>ios</td><td>App_Start_Time_First</td><td>1</td><td>1</td><td>1</td><td>100</td></tr><tr data-platform="android"><td>android</td><td>App_Update</td><td>4</td><td>4</td><td>151</td><td>2.60</td></tr><tr data-platform="android"><td>android</td><td>LAT</td><td>5</td><td>5</td><td>151</td><td>3.30</td></tr><tr data-platform="ios"><td>ios</td><td>LAT</td><td>1</td><td>1</td><td>1</td><td>100</td></tr><tr data-platform="android"><td>android</td><td>NOT_LAT</td><td>140</td><td>140</td><td>151</td><td>92.70</td></tr><tr data-platform="android"><td>android</td><td>Init_Call_Completed</td><td>702</td><td>147</td><td>151</td><td>97.40</td></tr><tr data-platform="ios"><td>ios</td><td>Init_Call_Completed</td><td>1</td><td>1</td><td>1</td><td>100</td></tr><tr data-platform="android"><td>android</td><td>Session_Start</td><td>314</td><td>150</td><td>151</td><td>99.30</td></tr><tr data-platform="ios"><td>ios</td><td>Session_Start</td><td>1</td><td>1</td><td>1</td><td>100</td></tr><tr data-platform="android"><td>android</td><td>Session_Resume</td><td>529</td><td>92</td><td>151</td><td>60.90</td></tr><tr data-platform="android"><td>android</td><td>Session_End</td><td>168</td><td>60</td><td>151</td><td>39.70</td></tr><tr data-platform="android"><td>android</td><td>IAP_Make_Purchase</td><td>56</td><td>28</td><td>151</td><td>18.50</td></tr><tr data-platform="android"><td>android</td><td>Remote_Config_Load_Failed</td><td>35</td><td>3</td><td>151</td><td>2</td></tr><tr data-platform="android"><td>android</td><td>Remote_Config_Saved</td><td>295</td><td>141</td><td>151</td><td>93.40</td></tr><tr data-platform="ios"><td>ios</td><td>Remote_Config_Saved</td><td>1</td><td>1</td><td>1</td><td>100</td></tr><tr data-platform="android"><td>android</td><td>Game_End</td><td>1,761</td><td>140</td><td>151</td><td>92.70</td></tr><tr data-platform="ios"><td>ios</td><td>Game_End</td><td>4</td><td>1</td><td>1</td><td>100</td></tr><tr data-platform="android"><td>android</td><td>Game_Start</td><td>1,960</td><td>148</td><td>151</td><td>98</td></tr><tr data-platform="ios"><td>ios</td><td>Game_Start</td><td>4</td><td>1</td><td>1</td><td>100</td></tr><tr data-platform="android"><td>android</td><td>Game_Suspend</td><td>226</td><td>59</td><td>151</td><td>39.10</td></tr><tr data-platform="android"><td>android</td><td>Game_Resume</td><td>173</td><td>44</td><td>151</td><td>29.10</td></tr><tr data-platform="android"><td>android</td><td>Level_Progression</td><td>1,519</td><td>136</td><td>151</td><td>90.10</td></tr><tr data-platform="ios"><td>ios</td><td>Level_Progression</td><td>4</td><td>1</td><td>1</td><td>100</td></tr><tr data-platform="android"><td>android</td><td>Currency_Transaction</td><td>2,137</td><td>141</td><td>151</td><td>93.40</td></tr><tr data-platform="ios"><td>ios</td><td>Currency_Transaction</td><td>4</td><td>1</td><td>1</td><td>100</td></tr><tr data-platform="android"><td>android</td><td>Screen_Shown</td><td>10,725</td><td>151</td><td>151</td><td>100</td></tr><tr data-platform="ios"><td>ios</td><td>Screen_Shown</td><td>29</td><td>1</td><td>1</td><td>100</td></tr><tr data-platform="android"><td>android</td><td>Screen_Interaction</td><td>1,568</td><td>131</td><td>151</td><td>86.80</td></tr><tr data-platform="ios"><td>ios</td><td>Screen_Interaction</td><td>4</td><td>1</td><td>1</td><td>100</td></tr><tr data-platform="android"><td>android</td><td>User_Funnel</td><td>1,767</td><td>145</td><td>151</td><td>96</td></tr><tr data-platform="ios"><td>ios</td><td>User_Funnel</td><td>2</td><td>1</td><td>1</td><td>100</td></tr><tr data-platform="android"><td>android</td><td>Ad_Cached_Interstitial</td><td>194</td><td>40</td><td>151</td><td>26.50</td></tr><tr data-platform="android"><td>android</td><td>Ad_Cached_Rewarded</td><td>14</td><td>9</td><td>151</td><td>6</td></tr><tr data-platform="android"><td>android</td><td>Ad_Call_Fail_NoAdToShow_Interstitial</td><td>87</td><td>6</td><td>151</td><td>4</td></tr><tr data-platform="android"><td>android</td><td>Ad_Call_Fail_StillLoading_Interstitial</td><td>50</td><td>9</td><td>151</td><td>6</td></tr><tr data-platform="android"><td>android</td><td>Ad_Call_Fail_StillLoading_Rewarded</td><td>34</td><td>1</td><td>151</td><td>0.70</td></tr><tr data-platform="android"><td>android</td><td>Ad_Call_Interstitial</td><td>331</td><td>47</td><td>151</td><td>31.10</td></tr><tr data-platform="android"><td>android</td><td>Ad_Call_Rewarded</td><td>48</td><td>10</td><td>151</td><td>6.60</td></tr><tr data-platform="android"><td>android</td><td>Ad_Call_Success_Interstitial</td><td>194</td><td>40</td><td>151</td><td>26.50</td></tr><tr data-platform="android"><td>android</td><td>Ad_Call_Success_Rewarded</td><td>14</td><td>9</td><td>151</td><td>6</td></tr><tr data-platform="android"><td>android</td><td>Ad_Check</td><td>1,271</td><td>129</td><td>151</td><td>85.40</td></tr><tr data-platform="ios"><td>ios</td><td>Ad_Check</td><td>4</td><td>1</td><td>1</td><td>100</td></tr><tr data-platform="android"><td>android</td><td>Ad_Click_Interstitial</td><td>80</td><td>25</td><td>151</td><td>16.60</td></tr><tr data-platform="android"><td>android</td><td>Ad_Click_Rewarded</td><td>8</td><td>7</td><td>151</td><td>4.60</td></tr><tr data-platform="android"><td>android</td><td>Ad_Close_Interstitial</td><td>156</td><td>33</td><td>151</td><td>21.90</td></tr><tr data-platform="android"><td>android</td><td>Ad_Close_Rewarded</td><td>14</td><td>9</td><td>151</td><td>6</td></tr><tr data-platform="android"><td>android</td><td>Ad_FailedToDisplay_Interstitial</td><td>1</td><td>1</td><td>151</td><td>0.70</td></tr><tr data-platform="android"><td>android</td><td>Ad_Impression10</td><td>6</td><td>6</td><td>151</td><td>4</td></tr><tr data-platform="android"><td>android</td><td>Ad_Impression15</td><td>4</td><td>4</td><td>151</td><td>2.60</td></tr><tr data-platform="android"><td>android</td><td>Ad_Impression5</td><td>11</td><td>10</td><td>151</td><td>6.60</td></tr><tr data-platform="android"><td>android</td><td>Ad_Impression_Interstitial</td><td>183</td><td>36</td><td>151</td><td>23.80</td></tr><tr data-platform="android"><td>android</td><td>Ad_Impression_Interstitial10</td><td>6</td><td>6</td><td>151</td><td>4</td></tr><tr data-platform="android"><td>android</td><td>Ad_Impression_Interstitial15</td><td>4</td><td>3</td><td>151</td><td>2</td></tr><tr data-platform="android"><td>android</td><td>Ad_Impression_Interstitial5</td><td>9</td><td>8</td><td>151</td><td>5.30</td></tr><tr data-platform="android"><td>android</td><td>Ad_Impression_Rewarded</td><td>14</td><td>9</td><td>151</td><td>6</td></tr><tr data-platform="android"><td>android</td><td>Ad_Manager_Initialized</td><td>323</td><td>149</td><td>151</td><td>98.70</td></tr><tr data-platform="ios"><td>ios</td><td>Ad_Manager_Initialized</td><td>1</td><td>1</td><td>1</td><td>100</td></tr><tr data-platform="android"><td>android</td><td>Ad_Request_FailedToLoad_Interstitial</td><td>1,764</td><td>14</td><td>151</td><td>9.30</td></tr><tr data-platform="android"><td>android</td><td>Ad_Request_FailedToLoad_Rewarded</td><td>1,780</td><td>16</td><td>151</td><td>10.60</td></tr><tr data-platform="android"><td>android</td><td>Ad_Request_Interstitial</td><td>2,210</td><td>142</td><td>151</td><td>94</td></tr><tr data-platform="ios"><td>ios</td><td>Ad_Request_Interstitial</td><td>1</td><td>1</td><td>1</td><td>100</td></tr><tr data-platform="android"><td>android</td><td>Ad_Request_Rewarded</td><td>2,062</td><td>135</td><td>151</td><td>89.40</td></tr><tr data-platform="ios"><td>ios</td><td>Ad_Request_Rewarded</td><td>1</td><td>1</td><td>1</td><td>100</td></tr><tr data-platform="android"><td>android</td><td>Ad_Request_Success_Interstitial</td><td>419</td><td>129</td><td>151</td><td>85.40</td></tr><tr data-platform="ios"><td>ios</td><td>Ad_Request_Success_Interstitial</td><td>1</td><td>1</td><td>1</td><td>100</td></tr><tr data-platform="android"><td>android</td><td>Ad_Request_Success_Rewarded</td><td>255</td><td>125</td><td>151</td><td>82.80</td></tr><tr data-platform="ios"><td>ios</td><td>Ad_Request_Success_Rewarded</td><td>1</td><td>1</td><td>1</td><td>100</td></tr><tr data-platform="android"><td>android</td><td>ATT_Flow_AppStart</td><td>2</td><td>1</td><td>151</td><td>0.70</td></tr><tr data-platform="android"><td>android</td><td>ATT_Flow_Triggered</td><td>1</td><td>1</td><td>151</td><td>0.70</td></tr><tr data-platform="android"><td>android</td><td>ccrtcumulative</td><td>10</td><td>4</td><td>151</td><td>2.60</td></tr><tr data-platform="android"><td>android</td><td>CustomClientRevenueThresholdReached</td><td>16</td><td>16</td><td>151</td><td>10.60</td></tr><tr data-platform="android"><td>android</td><td>IAP_Init_Failed</td><td>6</td><td>5</td><td>151</td><td>3.30</td></tr><tr data-platform="android"><td>android</td><td>IAP_Init_Success</td><td>2,247</td><td>145</td><td>151</td><td>96</td></tr><tr data-platform="ios"><td>ios</td><td>IAP_Init_Success</td><td>2</td><td>1</td><td>1</td><td>100</td></tr><tr data-platform="android"><td>android</td><td>IAP_Process_Purchase</td><td>20</td><td>13</td><td>151</td><td>8.60</td></tr><tr data-platform="android"><td>android</td><td>IAP_Purchase_Failed</td><td>35</td><td>17</td><td>151</td><td>11.30</td></tr><tr data-platform="android"><td>android</td><td>IAP_Purchase_Track_Revenue</td><td>2</td><td>2</td><td>151</td><td>1.30</td></tr><tr data-platform="android"><td>android</td><td>Install_Init_Call_Completed</td><td>162</td><td>151</td><td>151</td><td>100</td></tr><tr data-platform="ios"><td>ios</td><td>Install_Init_Call_Completed</td><td>1</td><td>1</td><td>1</td><td>100</td></tr><tr data-platform="android"><td>android</td><td>Item_Transaction</td><td>151</td><td>30</td><td>151</td><td>19.90</td></tr><tr data-platform="android"><td>android</td><td>Store_Product_Purchase_Failure</td><td>35</td><td>17</td><td>151</td><td>11.30</td></tr><tr data-platform="android"><td>android</td><td>Store_Product_Purchase_Started</td><td>56</td><td>28</td><td>151</td><td>18.50</td></tr><tr data-platform="android"><td>android</td><td>Store_Product_Purchase_Success</td><td>18</td><td>12</td><td>151</td><td>7.90</td></tr><tr data-platform="android"><td>android</td><td>Store_Product_Restore_Success</td><td>1</td><td>1</td><td>151</td><td>0.70</td></tr></tbody></table></div></div><div class="dq-check">  <div class="dq-check-header">    <span class="dq-check-title">tds_db.dds.application</span>    <span class="badge b-green">✓ Pass</span>  </div>  <div class="dq-summaries">    <span class="dq-summary">app, team, studio — all match</span>  </div>  <div class="dq-flags"></div>  <div class="dq-table-wrap"><table><thead><tr><th>dds_app</th><th>dds_team</th><th>dds_studio</th><th>as_app</th><th>as_team</th><th>as_studio</th><th>check_app</th><th>check_team</th><th>check_studio</th></tr></thead><tbody><tr><td>colorflowsort</td><td>Hades</td><td>mythos</td><td>colorflowsort</td><td>Hades</td><td>Mythos</td><td>✓</td><td>✓</td><td>✓</td></tr></tbody></table></div></div><div class="dq-check">  <div class="dq-check-header">    <span class="dq-check-title">tds_db.public.bi_application</span>    <span class="badge b-green">✓ Pass</span>  </div>  <div class="dq-summaries">    <span class="dq-summary">app, team, studio — all match</span>  </div>  <div class="dq-flags"></div>  <div class="dq-table-wrap"><table><thead><tr><th>bi_app</th><th>bi_team</th><th>bi_studio</th><th>as_app</th><th>as_team</th><th>as_studio</th><th>check_app</th><th>check_team</th><th>check_studio</th></tr></thead><tbody><tr><td>colorflowsort</td><td>Hades</td><td>mythos</td><td>colorflowsort</td><td>Hades</td><td>Mythos</td><td>✓</td><td>✓</td><td>✓</td></tr></tbody></table></div></div><div class="dq-check">  <div class="dq-check-header">    <span class="dq-check-title">tds_db.public.app_name_mapping_gs</span>    <span class="badge b-green">✓ Pass</span>  </div>  <div class="dq-summaries">    <span class="dq-summary">GS ID: 159 | App Group: Sort</span>    <span class="dq-summary">ID linked in TDS_APP_IDS: Yes</span>    <span class="dq-summary">Name match (gs.name = analytical_name): Yes</span>  </div>  <div class="dq-flags"></div>  <div class="dq-table-wrap"><table><thead><tr><th>gs_id</th><th>gs_name</th><th>gs_app_group</th><th>tds_analytical_name</th><th>tds_gs_app_id</th><th>tds_zm_gs_app_id</th><th>tds_lds_gs_app_id</th><th>tds_tt_gs_app_id</th><th>check_id</th><th>check_name</th></tr></thead><tbody><tr><td>159</td><td>colorflowsort</td><td>Sort</td><td>colorflowsort</td><td>159</td><td>—</td><td>—</td><td>—</td><td>✓</td><td>✓</td></tr></tbody></table></div></div><div class="tier-header">🟡 Tier 2 — Metrics</div><div class="dq-check">  <div class="dq-check-header">    <span class="dq-check-title">tds_db.public.activity_summary_report_new</span>    <span class="badge b-green">✓ Data found</span>  </div>  <div class="dq-summaries">    <span class="dq-summary bad">Total ad revenue (L14D): $0.00</span>    <span class="dq-summary warn">IAP revenue: ✗ No IAP data</span>    <span class="dq-summary">Latest data: 24 Jun 2026</span>  </div>  <div class="dq-flags"><div class="dq-flags-inner"><span class="dq-flag">No data: sum revenue</span><span class="dq-flag">No data: sum iap revenue</span><span class="dq-flag">No data: sum impression</span><span class="dq-flag">No data: sum request</span></div></div>  <div class="dq-table-wrap"><table><thead><tr><th>Date</th><th>Platform</th><th>Countries</th><th>Placement Types</th><th>Connections</th><th>Media Sources</th><th>DAU Avg</th><th>Sessions Avg</th><th>Installs Avg</th><th>Ad Revenue</th><th>IAP Revenue</th><th>Impressions</th><th>Requests</th><th>Clicks</th><th>Spent</th></tr></thead><tbody><tr data-platform="android"><td>2026-06-11</td><td>android</td><td>2</td><td>0</td><td>0</td><td>1</td><td>7</td><td>8</td><td>3</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr><tr data-platform="android"><td>2026-06-15</td><td>android</td><td>3</td><td>0</td><td>0</td><td>2</td><td>1</td><td>1</td><td>3.67</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr><tr data-platform="android"><td>2026-06-16</td><td>android</td><td>1</td><td>0</td><td>0</td><td>0</td><td>3</td><td>3</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr><tr data-platform="android"><td>2026-06-17</td><td>android</td><td>4</td><td>0</td><td>0</td><td>1</td><td>6.67</td><td>7.67</td><td>3.25</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr><tr data-platform="android"><td>2026-06-18</td><td>android</td><td>4</td><td>0</td><td>0</td><td>1</td><td>3.75</td><td>4.50</td><td>2</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr><tr data-platform="ios"><td>2026-06-18</td><td>ios</td><td>1</td><td>0</td><td>0</td><td>0</td><td>1</td><td>1</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr><tr data-platform="android"><td>2026-06-19</td><td>android</td><td>2</td><td>0</td><td>0</td><td>2</td><td>13</td><td>31</td><td>3</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td><td>0</td></tr><tr data-platform="android"><td>2026-06-20</td><td>android</td><td>2</td><td>0</td><td>0</td><td>1</td><td>1</td><td>1.50</td><td>1</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr><tr data-platform="android"><td>2026-06-21</td><td>android</td><td>2</td><td>0</td><td>0</td><td>2</td><td>1</td><td>2</td><td>2</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td><td>0</td></tr><tr data-platform="android"><td>2026-06-22</td><td>android</td><td>3</td><td>0</td><td>0</td><td>2</td><td>2.50</td><td>5.50</td><td>2.50</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0</td><td>0</td></tr><tr data-platform="android"><td>2026-06-23</td><td>android</td><td>8</td><td>0</td><td>0</td><td>4</td><td>20.62</td><td>51.75</td><td>6.78</td><td>—</td><td>—</td><td>—</td><td>—</td><td>593</td><td>322.24</td></tr><tr data-platform="android"><td>2026-06-24</td><td>android</td><td>11</td><td>0</td><td>0</td><td>3</td><td>11.36</td><td>32.55</td><td>2.70</td><td>—</td><td>—</td><td>—</td><td>—</td><td>156</td><td>212.95</td></tr></tbody></table></div></div><div class="dq-check">  <div class="dq-check-header">    <span class="dq-check-title">tds_db.public.f_user_activity</span>    <span class="badge b-green">✓ Data found</span>  </div>  <div class="dq-summaries">    <span class="dq-summary">Peak DAU (android): 65 on 2026-06-23</span>    <span class="dq-summary">Avg games/DAU: 7.66</span>    <span class="dq-summary">Latest data: 24 Jun 2026</span>  </div>  <div class="dq-flags"></div>  <div class="dq-table-wrap"><table><thead><tr><th>Date</th><th>Platform</th><th>DAU</th><th>Games/DAU</th><th>Game Time/DAU</th><th>FS Imp/DAU</th><th>Banner Imp/DAU</th><th>Reward Imp/DAU</th></tr></thead><tbody><tr data-platform="android"><td>2026-06-11</td><td>android</td><td>7</td><td>2.1430</td><td>23.5710</td><td>0</td><td>0</td><td>0.1430</td></tr><tr data-platform="android"><td>2026-06-15</td><td>android</td><td>2</td><td>14</td><td>773.5000</td><td>0</td><td>0</td><td>1</td></tr><tr data-platform="android"><td>2026-06-16</td><td>android</td><td>3</td><td>9.3330</td><td>272.3330</td><td>0.6670</td><td>0</td><td>0</td></tr><tr data-platform="android"><td>2026-06-17</td><td>android</td><td>18</td><td>4.1670</td><td>344.5560</td><td>0.1110</td><td>0</td><td>0.0560</td></tr><tr data-platform="android"><td>2026-06-18</td><td>android</td><td>15</td><td>12.6670</td><td>3709.9330</td><td>0.7330</td><td>0</td><td>0.2670</td></tr><tr data-platform="ios"><td>2026-06-18</td><td>ios</td><td>1</td><td>4</td><td>42</td><td>0</td><td>0</td><td>0</td></tr><tr data-platform="android"><td>2026-06-19</td><td>android</td><td>13</td><td>15.8460</td><td>512.3850</td><td>0.8460</td><td>0</td><td>0.1540</td></tr><tr data-platform="android"><td>2026-06-20</td><td>android</td><td>2</td><td>0.5000</td><td>0</td><td>0</td><td>0</td><td>0</td></tr><tr data-platform="android"><td>2026-06-21</td><td>android</td><td>1</td><td>1</td><td>0</td><td>0</td><td>0</td><td>0</td></tr><tr data-platform="android"><td>2026-06-22</td><td>android</td><td>5</td><td>3.6000</td><td>55</td><td>0</td><td>0</td><td>0</td></tr><tr data-platform="android"><td>2026-06-23</td><td>android</td><td>65</td><td>11.6920</td><td>818.2000</td><td>1.1850</td><td>0</td><td>0.0150</td></tr><tr data-platform="android"><td>2026-06-24</td><td>android</td><td>49</td><td>13.0200</td><td>1322.4490</td><td>1.5920</td><td>0</td><td>0.0610</td></tr></tbody></table></div></div><div class="dq-check">  <div class="dq-check-header">    <span class="dq-check-title">tds_db.public.f_installs</span>    <span class="badge b-green">✓ Data found</span>  </div>  <div class="dq-summaries">    <span class="dq-summary">Total installs (L14D): 131</span>    <span class="dq-summary">Max country reach in a day: 8</span>    <span class="dq-summary warn">UA spend (CPI): ✓ Flowing</span>  </div>  <div class="dq-flags"></div>  <div class="dq-table-wrap"><table><thead><tr><th>Date</th><th>Platform</th><th>Installs</th><th>Countries</th><th>Sources</th><th>CPI Libring/Install</th><th>Total CPI</th></tr></thead><tbody><tr data-platform="android"><td>2026-06-11</td><td>android</td><td>6</td><td>2</td><td>1</td><td>0</td><td>0</td></tr><tr data-platform="android"><td>2026-06-15</td><td>android</td><td>11</td><td>3</td><td>2</td><td>0</td><td>0</td></tr><tr data-platform="android"><td>2026-06-17</td><td>android</td><td>13</td><td>4</td><td>1</td><td>0</td><td>0</td></tr><tr data-platform="android"><td>2026-06-18</td><td>android</td><td>2</td><td>1</td><td>1</td><td>0</td><td>0</td></tr><tr data-platform="android"><td>2026-06-19</td><td>android</td><td>3</td><td>1</td><td>1</td><td>0</td><td>0</td></tr><tr data-platform="android"><td>2026-06-20</td><td>android</td><td>1</td><td>1</td><td>1</td><td>0</td><td>0</td></tr><tr data-platform="android"><td>2026-06-21</td><td>android</td><td>2</td><td>1</td><td>1</td><td>0</td><td>0</td></tr><tr data-platform="android"><td>2026-06-22</td><td>android</td><td>5</td><td>2</td><td>1</td><td>0</td><td>0</td></tr><tr data-platform="android"><td>2026-06-23</td><td>android</td><td>61</td><td>7</td><td>3</td><td>0</td><td>322.24</td></tr><tr data-platform="android"><td>2026-06-24</td><td>android</td><td>27</td><td>8</td><td>3</td><td>0</td><td>0</td></tr></tbody></table></div></div><div class="dq-check">  <div class="dq-check-header">    <span class="dq-check-title">tds_db.public.f_user_revenue</span>    <span class="badge b-green">✓ Data found</span>  </div>  <div class="dq-summaries">    <span class="dq-summary bad">Total revenue (L14D): $0.00</span>    <span class="dq-summary">Avg ARPDAU: $—</span>    <span class="dq-summary">Top placement by revenue: Interstitial</span>  </div>  <div class="dq-flags"><div class="dq-flags-inner"><span class="dq-flag">No data: total revenue</span><span class="dq-flag">No data: arpdau</span><span class="dq-flag">No data: cpm</span><span class="dq-flag">No data: fs arpdau</span><span class="dq-flag">No data: banner arpdau</span></div></div>  <div class="dq-table-wrap"><table><thead><tr><th>Date</th><th>Platform</th><th>Revenue</th><th>ARPDAU</th><th>CPM</th><th>FS ARPDAU</th><th>Banner ARPDAU</th><th>Reward ARPDAU</th></tr></thead><tbody><tr data-platform="android"><td>2026-06-11</td><td>android</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr><tr data-platform="android"><td>2026-06-15</td><td>android</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr><tr data-platform="android"><td>2026-06-16</td><td>android</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr><tr data-platform="android"><td>2026-06-17</td><td>android</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr><tr data-platform="android"><td>2026-06-18</td><td>android</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr><tr data-platform="android"><td>2026-06-19</td><td>android</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr><tr data-platform="android"><td>2026-06-23</td><td>android</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr><tr data-platform="android"><td>2026-06-24</td><td>android</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr></tbody></table></div></div><div class="dq-check">  <div class="dq-check-header">    <span class="dq-check-title">tds_db.public.f_release_monitoring_hourly</span>    <span class="badge b-green">✓ Data found</span>  </div>  <div class="dq-summaries">    <span class="dq-summary warn">Total fatal crashes (L14D): 3</span>    <span class="dq-summary">Avg app load time: 2.1s</span>    <span class="dq-summary">Latest reward fill rate: 6%</span>  </div>  <div class="dq-flags"></div>  <div class="dq-table-wrap"><table><thead><tr><th>Date</th><th>Platform</th><th>Active Users</th><th>Games</th><th>D1 Returns</th><th>Fatal Crashes</th><th>Fatal Crash Users</th><th>Non-Fatal</th><th>App Load (ms)</th><th>Inter Rev</th><th>Banner Rev</th><th>Reward Rev</th><th>Inter Fill</th><th>Reward Fill</th></tr></thead><tbody><tr data-platform="android"><td>2026-06-11</td><td>android</td><td>10</td><td>15</td><td>0</td><td>—</td><td>—</td><td>—</td><td>1,877</td><td>0</td><td>0</td><td>0.0009</td><td>1</td><td>1</td></tr><tr data-platform="android"><td>2026-06-15</td><td>android</td><td>4</td><td>28</td><td>2</td><td>—</td><td>—</td><td>—</td><td>2359.2500</td><td>0</td><td>0</td><td>0.0021</td><td>0</td><td>0.0789</td></tr><tr data-platform="android"><td>2026-06-16</td><td>android</td><td>4</td><td>16</td><td>0</td><td>—</td><td>—</td><td>—</td><td>—</td><td>0.0000</td><td>0</td><td>0</td><td>0.4286</td><td>0.2222</td></tr><tr data-platform="android"><td>2026-06-17</td><td>android</td><td>30</td><td>75</td><td>11</td><td>0</td><td>0</td><td>11</td><td>2080.5000</td><td>0.0008</td><td>0</td><td>0.0003</td><td>0.5192</td><td>0.1411</td></tr><tr data-platform="android"><td>2026-06-18</td><td>android</td><td>43</td><td>87</td><td>16</td><td>—</td><td>—</td><td>—</td><td>523.2500</td><td>0.0050</td><td>0</td><td>0</td><td>1</td><td>0.6364</td></tr><tr data-platform="ios"><td>2026-06-18</td><td>ios</td><td>1</td><td>—</td><td>0</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr><tr data-platform="android"><td>2026-06-19</td><td>android</td><td>31</td><td>182</td><td>0</td><td>1</td><td>1</td><td>0</td><td>582.5000</td><td>0.0056</td><td>0</td><td>0.0048</td><td>1</td><td>0.9000</td></tr><tr data-platform="android"><td>2026-06-20</td><td>android</td><td>1</td><td>1</td><td>0</td><td>0</td><td>0</td><td>2</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr><tr data-platform="android"><td>2026-06-21</td><td>android</td><td>1</td><td>1</td><td>0</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr><tr data-platform="android"><td>2026-06-22</td><td>android</td><td>8</td><td>18</td><td>0</td><td>0</td><td>0</td><td>1</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0.7500</td><td>0.7500</td></tr><tr data-platform="android"><td>2026-06-23</td><td>android</td><td>109</td><td>757</td><td>49</td><td>—</td><td>—</td><td>—</td><td>3,716</td><td>8.6322</td><td>0</td><td>0.0440</td><td>0.3634</td><td>0.2604</td></tr><tr data-platform="android"><td>2026-06-24</td><td>android</td><td>105</td><td>634</td><td>6</td><td>2</td><td>2</td><td>5</td><td>3,683</td><td>5.7473</td><td>0</td><td>0.1723</td><td>0.0992</td><td>0.0626</td></tr></tbody></table></div></div><div class="dq-check">  <div class="dq-check-header">    <span class="dq-check-title">tds_db.public.f_tech_performance_hourly</span>    <span class="badge b-green">✓ Data found</span>  </div>  <div class="dq-summaries">    <span class="dq-summary warn">Avg app open time / first launch: 3.3s</span>    <span class="dq-summary warn">Total crashes: 48</span>    <span class="dq-summary">Max distinct device models: 46</span>  </div>  <div class="dq-flags"></div>  <div class="dq-table-wrap"><table><thead><tr><th>Date</th><th>Platform</th><th>Active Users</th><th>Device Models</th><th>Open (First) ms</th><th>Open (Return) ms</th><th>Memory Free</th><th>Memory Used</th><th>Crashes</th></tr></thead><tbody><tr data-platform="android"><td>2026-06-11</td><td>android</td><td>10</td><td>2</td><td>1401.2900</td><td>10,975</td><td>3,352,866,816</td><td>4,470,722,560</td><td>2</td></tr><tr data-platform="android"><td>2026-06-15</td><td>android</td><td>4</td><td>2</td><td>2,399</td><td>7858.2000</td><td>—</td><td>—</td><td>—</td></tr><tr data-platform="android"><td>2026-06-16</td><td>android</td><td>4</td><td>2</td><td>1,301</td><td>—</td><td>—</td><td>—</td><td>—</td></tr><tr data-platform="android"><td>2026-06-17</td><td>android</td><td>28</td><td>4</td><td>2167.7800</td><td>2119.8800</td><td>2166788468.3600</td><td>3732299403.6400</td><td>22</td></tr><tr data-platform="android"><td>2026-06-18</td><td>android</td><td>43</td><td>7</td><td>2123.7000</td><td>1281.6900</td><td>—</td><td>—</td><td>—</td></tr><tr data-platform="ios"><td>2026-06-18</td><td>ios</td><td>1</td><td>1</td><td>560</td><td>—</td><td>—</td><td>—</td><td>—</td></tr><tr data-platform="android"><td>2026-06-19</td><td>android</td><td>31</td><td>4</td><td>1798.9000</td><td>1310.3400</td><td>355,311,616</td><td>6,500,000,000</td><td>2</td></tr><tr data-platform="android"><td>2026-06-20</td><td>android</td><td>1</td><td>1</td><td>4,905</td><td>—</td><td>—</td><td>—</td><td>—</td></tr><tr data-platform="android"><td>2026-06-21</td><td>android</td><td>1</td><td>1</td><td>6,294</td><td>—</td><td>—</td><td>—</td><td>—</td></tr><tr data-platform="android"><td>2026-06-22</td><td>android</td><td>8</td><td>5</td><td>7049.5000</td><td>3731.2000</td><td>1,760,030,720</td><td>3,967,574,016</td><td>2</td></tr><tr data-platform="android"><td>2026-06-23</td><td>android</td><td>109</td><td>46</td><td>6042.8800</td><td>5663.6300</td><td>812954419.2000</td><td>2,900,598,784</td><td>10</td></tr><tr data-platform="android"><td>2026-06-24</td><td>android</td><td>106</td><td>42</td><td>4092.3300</td><td>6252.1800</td><td>524024627.2000</td><td>2894922956.8000</td><td>10</td></tr></tbody></table></div></div><div class="dq-check">  <div class="dq-check-header">    <span class="dq-check-title">tds_db.public.f_levels</span>    <span class="badge b-green">✓ Data found</span>  </div>  <div class="dq-summaries">    <span class="dq-summary">Total games finished (L14D): 1,763</span>    <span class="dq-summary">Max unique levels in a day: 116</span>    <span class="dq-summary warn">Coins usage rows: 7 — economy active</span>  </div>  <div class="dq-flags"></div>  <div class="dq-table-wrap"><table><thead><tr><th>Date</th><th>Platform</th><th>Users</th><th>Unique Levels</th><th>Max Level</th><th>Games Finished</th><th>Total Game Length</th><th>Coins Usage Rows</th><th>Inter Imp</th><th>Banner Imp</th><th>Reward Imp</th><th>Inter Rev</th><th>Banner Rev</th><th>Reward Rev</th></tr></thead><tbody><tr data-platform="android"><td>2026-06-11</td><td>android</td><td>5</td><td>9</td><td>726,256</td><td>12</td><td>164</td><td>—</td><td>0</td><td>0</td><td>0</td><td>—</td><td>—</td><td>—</td></tr><tr data-platform="android"><td>2026-06-15</td><td>android</td><td>2</td><td>25</td><td>735,033</td><td>26</td><td>1,548</td><td>—</td><td>0</td><td>0</td><td>0</td><td>—</td><td>—</td><td>—</td></tr><tr data-platform="android"><td>2026-06-16</td><td>android</td><td>3</td><td>27</td><td>735,034</td><td>28</td><td>819</td><td>—</td><td>0</td><td>0</td><td>0</td><td>—</td><td>—</td><td>—</td></tr><tr data-platform="android"><td>2026-06-17</td><td>android</td><td>17</td><td>29</td><td>735,024</td><td>70</td><td>6,202</td><td>2</td><td>0</td><td>0</td><td>1</td><td>—</td><td>—</td><td>0.0003</td></tr><tr data-platform="android"><td>2026-06-18</td><td>android</td><td>13</td><td>46</td><td>735,039</td><td>124</td><td>16,378</td><td>1</td><td>0</td><td>0</td><td>0</td><td>—</td><td>—</td><td>—</td></tr><tr data-platform="ios"><td>2026-06-18</td><td>ios</td><td>1</td><td>4</td><td>232,973</td><td>4</td><td>42</td><td>—</td><td>0</td><td>0</td><td>0</td><td>—</td><td>—</td><td>—</td></tr><tr data-platform="android"><td>2026-06-19</td><td>android</td><td>12</td><td>27</td><td>735,040</td><td>118</td><td>6,659</td><td>—</td><td>0</td><td>0</td><td>0</td><td>—</td><td>—</td><td>—</td></tr><tr data-platform="android"><td>2026-06-22</td><td>android</td><td>4</td><td>7</td><td>7</td><td>15</td><td>275</td><td>—</td><td>0</td><td>0</td><td>0</td><td>—</td><td>—</td><td>—</td></tr><tr data-platform="android"><td>2026-06-23</td><td>android</td><td>65</td><td>74</td><td>74</td><td>743</td><td>53,383</td><td>1</td><td>49</td><td>0</td><td>1</td><td>8.4171</td><td>—</td><td>0.0440</td></tr><tr data-platform="android"><td>2026-06-24</td><td>android</td><td>43</td><td>116</td><td>118</td><td>623</td><td>64,597</td><td>3</td><td>57</td><td>0</td><td>3</td><td>4.3914</td><td>—</td><td>0.1723</td></tr></tbody></table></div></div><div class="tier-header">⚪ Tier 3 — Further Enhancement (Planned)</div><div class="dq-check">  <div class="dq-check-header">    <span class="dq-check-title">tds_db.public.f_qa_automation</span>    <span class="badge b-gray">QA Related</span>    <span class="badge b-gray">Planned</span>  </div>  <div class="dq-placeholder">Check not yet implemented — queued for future enhancement.</div></div><div class="dq-check">  <div class="dq-check-header">    <span class="dq-check-title">tds_db.public.f_live_telemetry</span>    <span class="badge b-gray">QA Related</span>    <span class="badge b-gray">Planned</span>  </div>  <div class="dq-placeholder">Check not yet implemented — queued for future enhancement.</div></div><div class="dq-check">  <div class="dq-check-header">    <span class="dq-check-title">tds_db.public.f_ab_participations</span>    <span class="badge b-gray">Experimentation</span>    <span class="badge b-gray">Planned</span>  </div>  <div class="dq-placeholder">Check not yet implemented — queued for future enhancement.</div></div></div>
+      </div>
+    </div>
+  </div>
 </div>
-<div class="count" id="countLabel"></div>
 
 <script>
-const TODAY = new Date('2026-06-02');
+// ════════════════════════════════════════════════
+// FIXED DATE — snapshot is 2026-06-25
+// ════════════════════════════════════════════════
+const TODAY = new Date('2026-06-25T12:00:00Z');
 
-const RAW = [
-  {app:'Hexa Stack', studio:'Ludios', team:'Cerberus', analytical:null, pm:'artem.chupryna', date:'2026-07-31'},
-  {app:'Triple Merge Island', studio:'Ludios', team:'Cerberus', analytical:null, pm:'ilya.buber', date:'2026-07-31'},
-  {app:'Crostic', studio:'Nova', team:'Polaris', analytical:null, pm:'shayan.chatterjee', date:'2026-07-27'},
-  {app:'Brilliant Blast', studio:'Mythos', team:'Hades', analytical:null, pm:'nikita.tolokonnikov', date:'2026-07-13'},
-  {app:'Color Cube Blast 3D', studio:'Ludios', team:'Cerberus', analytical:null, pm:'ilya.buber', date:'2026-07-04'},
-  {app:'Word Guesser', studio:'Mythos', team:'Odyssey', analytical:null, pm:'chun.lau', date:'2026-07-03'},
-  {app:'Word Chain', studio:'Ludios', team:'Cerberus', analytical:null, pm:'ilya.buber', date:'2026-06-26'},
-  {app:'Stack & Sort', studio:'Zephyr', team:'Zephyr', analytical:null, pm:'ihor.afanasiev', date:'2026-06-25'},
-  {app:'Lumina', studio:'Mythos', team:'Odyssey', analytical:null, pm:'chun.lau', date:'2026-06-24'},
-  {app:'Puzzle Guesser', studio:'Mythos', team:'Hades', analytical:'puzzleguess', pm:'antti.makkonen', date:'2026-06-22'},
-  {app:'Nuts Pack', studio:'Zephyr', team:'Zephyr', analytical:'nutspack', pm:'yuri.chumachenko', date:'2026-06-16'},
-  {app:'Marble Drop', studio:'Ludios', team:'Cerberus', analytical:null, pm:'artem.chupryna', date:'2026-06-13'},
-  {app:'Nuts Pack: ASMR Nut Sort', studio:'Zephyr', team:'Zephyr', analytical:null, pm:'yuri.chumachenko', date:'2026-06-11'},
-  {app:'Word Tile Scapes', studio:'Mythos', team:'Odyssey', analytical:'wordtilescapes', pm:'chun.lau', date:'2026-06-05'},
-  {app:'Color Flow Sort', studio:'Mythos', team:'Hades', analytical:'colorflowsort', pm:'ozan.gunes', date:'2026-06-29'},
-  {app:'Catman', studio:'Mythos', team:'Odyssey', analytical:'paccat', pm:'raheem.farooq', date:'2026-04-30'},
-  {app:'Sushi Flow', studio:'Mythos', team:'Odyssey', analytical:'sushiflow', pm:'chun.lau', date:'2026-04-30'},
-  {app:'Arrow Sort', studio:'Nova', team:'Polaris', analytical:'arrowsort', pm:'noah.mason', date:'2026-04-22'},
-  {app:'Arrow Color Out', studio:'Mythos', team:'Odyssey', analytical:'arrowcolorout', pm:'chun.lau', date:'2026-04-14'},
-  {app:'Card Association', studio:'Nova', team:'Classic Games', analytical:'cardassociations', pm:'luke.belto', date:'2026-03-09'},
-  {app:'Vanilla', studio:'Central Tech', team:'Reactor', analytical:'vanillagame', pm:'malgorzata.blus', date:null},
-  {app:'Tidal Tile', studio:'Mythos', team:'Odyssey', analytical:'tidaltile', pm:null, date:null},
+// ════════════════════════════════════════════════
+// HARDCODED GAME DATA
+// ════════════════════════════════════════════════
+const allGames = [
+  { APPLICATION_NAME:'Color Flow Sort',    ANALYTICAL_NAME:'colorflowsort',  PUBLIC_ID:'cfs001',  SL_DATE:'2026-06-22', STUDIO_NAME:'Mythos',  BUNDLE_ID:'com.tripledot.colorflowsort',  BUNDLE_ID_IOS:'com.tripledot.colorflowsort', BUNDLE_ID_ANDROID:'com.tripledot.colorflowsort', ADJUST_IOS:'81lfts85am0w', ADJUST_ANDROID:'s01x3w4qexog', PLATFORMS:'ios,android', GAME_SERVER_ID:'159',
+    EPU_CHECKED:true, EPU:{ ROW_COUNT:38934, DISTINCT_EVENTS:50, DISTINCT_DEVICES:55, GAME_START_COUNT:1964, GAME_END_COUNT:1765 }
+  },
+  { APPLICATION_NAME:'Puzzle Guesser',     ANALYTICAL_NAME:'puzzleguess',    PUBLIC_ID:'pg001',   SL_DATE:'2026-06-22', STUDIO_NAME:'Mythos',  BUNDLE_ID:'com.tripledot.puzzleguess',    BUNDLE_ID_IOS:'com.tripledot.puzzleguess', BUNDLE_ID_ANDROID:'com.tripledot.puzzleguess', ADJUST_IOS:'fy6jdb2zm5ts', ADJUST_ANDROID:'paha4fovcyrk', PLATFORMS:'ios,android', GAME_SERVER_ID:'160',
+    EPU_CHECKED:true, EPU:null
+  },
+  { APPLICATION_NAME:'Nut Master',         ANALYTICAL_NAME:'nutmaster',      PUBLIC_ID:'nm001',   SL_DATE:'2026-06-25', STUDIO_NAME:'Zephyr',  BUNDLE_ID:'com.zm.ss',                    BUNDLE_ID_IOS:'com.zm.ss', BUNDLE_ID_ANDROID:'com.zm.ss', ADJUST_IOS:'3vu3cdifcr9c', ADJUST_ANDROID:'3vu3cdifcr9c', PLATFORMS:'ios,android', GAME_SERVER_ID:'2020',
+    EPU_CHECKED:true, EPU:null
+  },
+  { APPLICATION_NAME:'Word Chain',         ANALYTICAL_NAME:'bubblewordchain',PUBLIC_ID:'wc001',   SL_DATE:'2026-06-26', STUDIO_NAME:'Ludios', BUNDLE_ID:'com.puzzlegame.wordchain',     BUNDLE_ID_IOS:'com.puzzlegame.wordchain', BUNDLE_ID_ANDROID:'com.puzzlegame.wordchain', ADJUST_IOS:'13f89a7ons68', ADJUST_ANDROID:'dmovwcwkkphc', PLATFORMS:'ios,android', GAME_SERVER_ID:'3006',
+    EPU_CHECKED:true, EPU:{ ROW_COUNT:87540, DISTINCT_EVENTS:42, DISTINCT_DEVICES:722, GAME_START_COUNT:12800, GAME_END_COUNT:11300 }
+  },
+  { APPLICATION_NAME:'Capydoku',           ANALYTICAL_NAME:'capydoku',       PUBLIC_ID:'cap001',  SL_DATE:'2026-06-30', STUDIO_NAME:'Mythos',  BUNDLE_ID:'com.tripledot.capydoku',       BUNDLE_ID_IOS:null, BUNDLE_ID_ANDROID:'com.tripledot.capydoku', ADJUST_IOS:null, ADJUST_ANDROID:'z56n8l0kpnnk', PLATFORMS:'android', GAME_SERVER_ID:null,
+    EPU_CHECKED:false, EPU:null
+  },
+  { APPLICATION_NAME:'Lumina',             ANALYTICAL_NAME:'lumina',         PUBLIC_ID:'lum001',  SL_DATE:'2026-06-30', STUDIO_NAME:'Mythos',  BUNDLE_ID:'com.tripledot.lumina',         BUNDLE_ID_IOS:null, BUNDLE_ID_ANDROID:'com.tripledot.lumina', ADJUST_IOS:null, ADJUST_ANDROID:'4yb50ghb8934', PLATFORMS:'android', GAME_SERVER_ID:'166',
+    EPU_CHECKED:true, EPU:null
+  },
+  { APPLICATION_NAME:'Treasure Shot',      ANALYTICAL_NAME:null,             PUBLIC_ID:'ts001',   SL_DATE:'2026-07-02', STUDIO_NAME:'Ludios', BUNDLE_ID:'com.puzzlegame.treasureshot',  BUNDLE_ID_IOS:'com.puzzlegame.treasureshot', BUNDLE_ID_ANDROID:'com.puzzlegame.treasureshot', ADJUST_IOS:'j5g7azikcvsw', ADJUST_ANDROID:'1hadr0iz3vi8', PLATFORMS:'ios,android', GAME_SERVER_ID:null,
+    EPU_CHECKED:false, EPU:null
+  },
+  { APPLICATION_NAME:'Color Cube Blast 3D',ANALYTICAL_NAME:null,             PUBLIC_ID:'ccb001',  SL_DATE:'2026-07-04', STUDIO_NAME:'Ludios', BUNDLE_ID:'com.puzzlegame.colorcubeblast',BUNDLE_ID_IOS:'com.puzzlegame.colorcubeblast', BUNDLE_ID_ANDROID:'com.puzzlegame.colorcubeblast', ADJUST_IOS:'4gera6779r40', ADJUST_ANDROID:'tq40yqdkyjnk', PLATFORMS:'ios,android', GAME_SERVER_ID:'3009',
+    EPU_CHECKED:true, EPU:null
+  },
+  { APPLICATION_NAME:'Block Smash Game',   ANALYTICAL_NAME:null,             PUBLIC_ID:'bsg001',  SL_DATE:'2026-07-09', STUDIO_NAME:'Ludios', BUNDLE_ID:null,                           BUNDLE_ID_IOS:null, BUNDLE_ID_ANDROID:null, ADJUST_IOS:null, ADJUST_ANDROID:null, PLATFORMS:null, GAME_SERVER_ID:null,
+    EPU_CHECKED:false, EPU:null
+  },
+  { APPLICATION_NAME:'Brilliant Blast',    ANALYTICAL_NAME:null,             PUBLIC_ID:'bb001',   SL_DATE:'2026-07-13', STUDIO_NAME:'Mythos',  BUNDLE_ID:'com.tripledot.BrilliantBlast', BUNDLE_ID_IOS:'com.tripledot.BrilliantBlast', BUNDLE_ID_ANDROID:'com.tripledot.BrilliantBlast', ADJUST_IOS:'zxlwqzccydc0', ADJUST_ANDROID:'i4fgf16d8n40', PLATFORMS:'ios,android', GAME_SERVER_ID:'163',
+    EPU_CHECKED:false, EPU:null
+  },
+  { APPLICATION_NAME:'Tile Word Jam',      ANALYTICAL_NAME:null,             PUBLIC_ID:'twj001',  SL_DATE:'2026-07-14', STUDIO_NAME:'Mythos',  BUNDLE_ID:'com.tripledot.tilewordjam',    BUNDLE_ID_IOS:'com.tripledot.tilewordjam', BUNDLE_ID_ANDROID:'com.tripledot.tilewordjam', ADJUST_IOS:'peewxmiz71ts', ADJUST_ANDROID:'cgslgdxsxb7k', PLATFORMS:'ios,android', GAME_SERVER_ID:null,
+    EPU_CHECKED:false, EPU:null
+  },
+  { APPLICATION_NAME:'Crostic',            ANALYTICAL_NAME:null,             PUBLIC_ID:'cro001',  SL_DATE:'2026-07-20', STUDIO_NAME:'Nova',    BUNDLE_ID:'com.tripledot.crosticword',    BUNDLE_ID_IOS:'com.tripledot.crosticword', BUNDLE_ID_ANDROID:'com.tripledot.crosticword', ADJUST_IOS:'pqelacshhs74', ADJUST_ANDROID:'lmjykquah69s', PLATFORMS:'ios,android', GAME_SERVER_ID:'164',
+    EPU_CHECKED:false, EPU:null
+  },
+  { APPLICATION_NAME:'Triple Merge Island',ANALYTICAL_NAME:null,             PUBLIC_ID:'tmi001',  SL_DATE:'2026-07-31', STUDIO_NAME:'Ludios', BUNDLE_ID:'com.puzzlegame.tripleisland',  BUNDLE_ID_IOS:'com.puzzlegame.tripleisland', BUNDLE_ID_ANDROID:'com.puzzlegame.tripleisland', ADJUST_IOS:'ud3liznivo5c', ADJUST_ANDROID:'1ybzhzel02jk', PLATFORMS:'ios,android', GAME_SERVER_ID:'3010',
+    EPU_CHECKED:false, EPU:null
+  },
+  { APPLICATION_NAME:'Hexa Stack',         ANALYTICAL_NAME:null,             PUBLIC_ID:'hs001',   SL_DATE:'2026-07-31', STUDIO_NAME:'Ludios', BUNDLE_ID:'com.puzzlegame.hexastack',     BUNDLE_ID_IOS:'com.puzzlegame.hexastack', BUNDLE_ID_ANDROID:'com.puzzlegame.hexastack', ADJUST_IOS:'7zgsoj3sx94w', ADJUST_ANDROID:'45g0elmxdkjk', PLATFORMS:'ios,android', GAME_SERVER_ID:'3008',
+    EPU_CHECKED:false, EPU:null
+  },
+  { APPLICATION_NAME:'Word Guesser',       ANALYTICAL_NAME:null,             PUBLIC_ID:'wg001',   SL_DATE:'2026-08-03', STUDIO_NAME:'Mythos',  BUNDLE_ID:'com.tripledot.wordguesser',    BUNDLE_ID_IOS:'com.tripledot.wordguesser', BUNDLE_ID_ANDROID:'com.tripledot.wordguesser', ADJUST_IOS:'zjxevf3okkcg', ADJUST_ANDROID:'yaqcfrc3fn5s', PLATFORMS:'ios,android', GAME_SERVER_ID:'165',
+    EPU_CHECKED:false, EPU:null
+  }
 ];
 
-function studioClass(s) {
-  const m = {Nova:'nova', Mythos:'mythos', Ludios:'ludios', Zephyr:'zephyr', 'Central Tech':'central'};
-  return m[s] || 'central';
+// ════════════════════════════════════════════════
+// JIRA DATA (hardcoded from live run)
+// ════════════════════════════════════════════════
+const jiraData = {
+  'color flow sort': { gameName:'Color Flow Sort', story:true, storyKey:'AS-6930', tasks:{etl:true, crashlytics:true, dashboard:true, dds:true} },
+  'colorflowsort':   { gameName:'Color Flow Sort', story:true, storyKey:'AS-6930', tasks:{etl:true, crashlytics:true, dashboard:true, dds:true} },
+  'puzzle guesser':  { gameName:'Puzzle Guesser',  story:true, storyKey:'AS-7052', tasks:{etl:true, crashlytics:true, dashboard:true, dds:true} },
+  'puzzleguess':     { gameName:'Puzzle Guesser',  story:true, storyKey:'AS-7052', tasks:{etl:true, crashlytics:true, dashboard:true, dds:true} },
+  'nut master':      { gameName:'Nut Master',      story:true, storyKey:'AS-7276', tasks:{etl:false, crashlytics:false, dashboard:false, dds:false} },
+  'nutmaster':       { gameName:'Nut Master',      story:true, storyKey:'AS-7276', tasks:{etl:false, crashlytics:false, dashboard:false, dds:false} },
+  'lumina':          { gameName:'Lumina',           story:true, storyKey:'AS-7296', tasks:{etl:true, crashlytics:true, dashboard:true, dds:true} }
+};
+
+// ════════════════════════════════════════════════
+// CALENDAR EVENTS (hardcoded from live run)
+// ════════════════════════════════════════════════
+const calendarEvents = [
+  'Color Flow Sort SL','Puzzle Guesser SL','Nut Master SL','Word Chain SL',
+  'Capydoku SL','Lumina SL','Color Cube Blast 3D SL',
+  'Brilliant Blast SL','Tile Word Jam SL','Crostic SL',
+  'Triple Merge Island SL','Hexa Stack SL','Word Guesser SL'
+];
+
+// ════════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════════
+let selectedStudios = new Set(['Mythos','Zephyr','Nova']);
+
+// ════════════════════════════════════════════════
+// HELPERS — override getWeekBounds to use fixed TODAY
+// ════════════════════════════════════════════════
+function getWeekBounds() {
+  const now = TODAY;
+  const day = now.getUTCDay() || 7; // Mon=1..Sun=7
+  const mon = new Date(now);
+  mon.setUTCDate(now.getUTCDate() - (day - 1));
+  const sun = new Date(mon); sun.setUTCDate(mon.getUTCDate() + 6);
+  const iso = d => d.toISOString().split('T')[0];
+  const lbl = d => d.toLocaleDateString('en-GB', { day:'numeric', month:'short', timeZone:'UTC' });
+  return { start: iso(mon), end: iso(sun), label: `${lbl(mon)} – ${lbl(sun)} ${sun.getUTCFullYear()}` };
 }
 
-function dateClass(d) {
-  if (!d) return 'date-unset';
-  const diff = (new Date(d) - TODAY) / 86400000;
-  if (diff < 0) return 'date-past';
-  if (diff <= 30) return 'date-soon';
-  return '';
+function getNextWeekBounds() {
+  const { start } = getWeekBounds();
+  const nextMon = new Date(start + 'T12:00:00Z');
+  nextMon.setUTCDate(nextMon.getUTCDate() + 7);
+  const nextSun = new Date(nextMon);
+  nextSun.setUTCDate(nextMon.getUTCDate() + 6);
+  const iso = d => d.toISOString().split('T')[0];
+  return { start: iso(nextMon), end: iso(nextSun) };
 }
 
-function fmtDate(d) {
-  if (!d) return '<span class="date-unset">Not set</span>';
-  const dt = new Date(d);
-  const cls = dateClass(d);
-  const label = dt.toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'});
-  return `<span class="${cls}">${label}</span>`;
+function isThisWeek(d) {
+  const { start, end } = getWeekBounds();
+  return d && d >= start && d <= end;
+}
+function isNextWeek(d) {
+  const { start, end } = getNextWeekBounds();
+  return d && d >= start && d <= end;
+}
+function isPast(slDate) {
+  if (!slDate) return false;
+  const { start } = getWeekBounds();
+  return slDate < start;
 }
 
-function fmtPM(pm) {
-  if (!pm) return '<span class="unset">Not set</span>';
-  return pm.split('@')[0].split('.').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+function whenBadge(slDate) {
+  if (isThisWeek(slDate)) return '<span class="badge b-purple">This Week</span>';
+  if (isPast(slDate))     return '<span class="badge b-green">Released</span>';
+  if (isNextWeek(slDate)) return '<span class="badge b-blue">Following Week</span>';
+  return '<span class="badge b-gray">Upcoming</span>';
 }
 
-function render() {
-  const sf = document.getElementById('studioFilter').value;
-  const tf = document.getElementById('teamFilter').value;
+function fmtDate(s) {
+  if (!s) return '—';
+  return new Date(s + 'T12:00:00Z').toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' });
+}
 
-  let data = RAW.filter(r => (!sf || r.studio === sf) && (!tf || r.team === tf));
+function fmtDateRange(startIso, endIso) {
+  const s = new Date(startIso + 'T12:00:00Z');
+  const e = new Date(endIso   + 'T12:00:00Z');
+  const sDay = s.getUTCDate();
+  const eDay = e.getUTCDate();
+  const sMonth = s.toLocaleDateString('en-GB', { month:'short', timeZone:'UTC' });
+  const eMonth = e.toLocaleDateString('en-GB', { month:'short', timeZone:'UTC' });
+  const eYear  = e.getUTCFullYear();
+  if (s.getUTCMonth() === e.getUTCMonth()) return `${sDay}–${eDay} ${eMonth} ${eYear}`;
+  return `${sDay} ${sMonth} – ${eDay} ${eMonth} ${eYear}`;
+}
 
-  data.sort((a, b) => {
-    if (!a.date && !b.date) return 0;
-    if (!a.date) return 1;
-    if (!b.date) return -1;
-    return new Date(b.date) - new Date(a.date);
-  });
+function hasCalEvent(gameName) {
+  const key = (gameName || '').toLowerCase();
+  return calendarEvents.some(e => e.toLowerCase().includes(key.slice(0,15)) && e.toLowerCase().includes('sl'));
+}
 
-  document.getElementById('tbody').innerHTML = data.map(r => `
-    <tr>
-      <td>${r.app}</td>
-      <td><span class="badge ${studioClass(r.studio)}">${r.studio}</span></td>
-      <td>${r.team}</td>
-      <td>${r.analytical ? `<code>${r.analytical}</code>` : '<span class="unset">Not set</span>'}</td>
-      <td>${fmtPM(r.pm)}</td>
-      <td>${fmtDate(r.date)}</td>
-    </tr>
+function fuzzyGameKey(name) {
+  return (name || '').split(':')[0].toLowerCase().replace(/[-_]/g,' ').replace(/\s+/g,' ').trim();
+}
+
+function extractSummaryParts(summary) {
+  const idx = summary.indexOf(' - ');
+  if (idx === -1) return { gameName: summary.trim(), desc: '' };
+  return { gameName: summary.substring(0, idx).trim(), desc: summary.substring(idx + 3).trim() };
+}
+
+function getJiraStatus(applicationName, analyticalName) {
+  const key    = fuzzyGameKey(applicationName);
+  const altKey = fuzzyGameKey(analyticalName);
+  const entry  = jiraData[key] || jiraData[altKey] || null;
+  if (!entry) return { level:'fail', issues:['No tickets found'] };
+  const missing = [];
+  if (!entry.story)             missing.push('ETL story');
+  if (!entry.tasks.etl)         missing.push('ETL task');
+  if (!entry.tasks.crashlytics) missing.push('Crashlytics task');
+  if (!entry.tasks.dashboard)   missing.push('BI Dashboard task');
+  if (!entry.tasks.dds)         missing.push('dds.application task');
+  if (missing.length === 0) return { level:'pass' };
+  return { level:'warn', issues: missing.map(m => `Missing: ${m}`) };
+}
+
+function jiraBadge(applicationName, analyticalName) {
+  const s = getJiraStatus(applicationName, analyticalName);
+  if (s.level === 'pass') return '<span class="badge b-green">✓ Jira</span>';
+  if (s.level === 'warn') {
+    const tip = s.issues.join('\n');
+    return `<span class="badge b-yellow" title="${tip}" style="cursor:help">⚠ Jira</span>`;
+  }
+  return '<span class="badge b-red">✗ Jira</span>';
+}
+
+function getMissing(g) {
+  const m = [];
+  if (!g.ANALYTICAL_NAME)  m.push('Analytical Name');
+  if (!g.GAME_SERVER_ID)   m.push('Game Server ID');
+  if (!g.ADJUST_IOS)       m.push('Adjust iOS');
+  if (!g.ADJUST_ANDROID)   m.push('Adjust Android');
+  if (!g.BUNDLE_ID)        m.push('Bundle ID');
+  return m;
+}
+
+function isAdjustWarn(g) {
+  return !!(g.ADJUST_IOS && g.ADJUST_ANDROID && g.ADJUST_IOS === g.ADJUST_ANDROID);
+}
+
+function ck(val, warn) {
+  if (warn) return '<span class="ck ck-warn" title="iOS = Android — verify">⚠</span>';
+  return val ? '<span class="ck ck-ok">✓</span>' : '<span class="ck ck-fail">✗</span>';
+}
+
+function epuStatus(g) {
+  if (!g.GAME_SERVER_ID) return { level:'na' };
+  if (!g.EPU_CHECKED)    return { level:'unknown' };
+  if (!g.EPU)            return { level:'none', label:'✗ No events', tooltip:'No events in last 14 days' };
+  const devices   = parseInt(g.EPU.DISTINCT_DEVICES || 0);
+  const gameStart = parseInt(g.EPU.GAME_START_COUNT || 0);
+  const gameEnd   = parseInt(g.EPU.GAME_END_COUNT   || 0);
+  const rows      = parseInt(g.EPU.ROW_COUNT || 0).toLocaleString();
+  const evtTypes  = parseInt(g.EPU.DISTINCT_EVENTS || 0);
+  const tip = `${rows} rows · ${evtTypes} event types · ${devices} device models · ${gameStart} Game_Start · ${gameEnd} Game_End`;
+  if (devices > 5 && gameStart >= 5 && gameEnd >= 5) return { level:'live', label:`Live · ${devices} dev`, tooltip:tip };
+  return { level:'testing', label:`Testing · ${devices} dev`, tooltip:tip };
+}
+
+function epuCell(g) {
+  if (!g.GAME_SERVER_ID) return '<span style="color:#9ca3af;font-size:12px">—</span>';
+  if (!g.EPU_CHECKED)    return '<span style="color:#9ca3af;font-size:12px">—</span>';
+  if (g.EPU_ERROR)       return `<span class="badge b-red" title="${g.EPU_ERROR}">⚠ EPU error</span>`;
+  const s = epuStatus(g);
+  if (s.level === 'none')    return `<span class="badge b-red" title="${s.tooltip}">${s.label}</span>`;
+  if (s.level === 'testing') return `<span class="badge b-yellow" title="${s.tooltip}">🧪 ${s.label}</span>`;
+  if (s.level === 'live')    return `<span class="badge b-green" title="${s.tooltip}">✓ ${s.label}</span>`;
+  return '<span class="badge b-gray" title="Query unavailable">?</span>';
+}
+
+function statusBadge(g, hasCal, hasJira) {
+  if (!g.ANALYTICAL_NAME) return '<span class="badge b-red">Blocked</span>';
+  const missing = getMissing(g);
+  const warn    = isAdjustWarn(g);
+  if (missing.length > 0 || warn) return '<span class="badge b-yellow">Needs Review</span>';
+  if (!hasCal || !hasJira)        return '<span class="badge b-blue">Action Needed</span>';
+  return '<span class="badge b-green">Ready ✓</span>';
+}
+
+function switchTab(name) {
+  const names = ['radar','week','dq'];
+  document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.toggle('active', names[i] === name));
+  document.querySelectorAll('.tab-pane').forEach((p,i) => p.classList.toggle('active', names[i] === name));
+}
+
+// ════════════════════════════════════════════════
+// STUDIO FILTER
+// ════════════════════════════════════════════════
+function renderStudioChips(chipsElId) {
+  const studios = [...new Set(allGames.map(g => g.STUDIO_NAME || 'Unknown'))].sort();
+  const chipsEl = document.getElementById(chipsElId);
+  if (!chipsEl) return;
+  chipsEl.innerHTML = studios.map(s => `
+    <button class="studio-chip ${selectedStudios.has(s) ? 'on' : 'off'}"
+      data-studio="${s.replace(/&/g,'&amp;').replace(/"/g,'&quot;')}">${s}</button>
   `).join('');
-
-  document.getElementById('countLabel').textContent = `Showing ${data.length} of ${RAW.length} games`;
+  chipsEl.querySelectorAll('.studio-chip').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const name = btn.dataset.studio;
+      if (selectedStudios.has(name)) selectedStudios.delete(name);
+      else selectedStudios.add(name);
+      renderStudioChips('studio-chips');
+      renderStudioChips('week-studio-chips');
+      renderRadar();
+      renderWeek();
+    });
+  });
 }
 
-render();
+// ════════════════════════════════════════════════
+// ISSUES PANEL
+// ════════════════════════════════════════════════
+function getGameIssues(g) {
+  const hasCal     = hasCalEvent(g.APPLICATION_NAME);
+  const jiraStatus = getJiraStatus(g.APPLICATION_NAME, g.ANALYTICAL_NAME);
+  const aWarn      = isAdjustWarn(g);
+  const issues     = [];
+  if (!g.ANALYTICAL_NAME) issues.push({ text:'No analytical name set', type:'ip-block' });
+  if (!g.GAME_SERVER_ID)  issues.push({ text:'Game Server ID not found', type:'ip-warn' });
+  if (!g.ADJUST_IOS  && !aWarn) issues.push({ text:'Adjust iOS token missing', type:'ip-warn' });
+  if (!g.ADJUST_ANDROID && !aWarn) issues.push({ text:'Adjust Android token missing', type:'ip-warn' });
+  if (aWarn) issues.push({ text:'iOS and Android Adjust tokens are the same', type:'ip-warn' });
+  if (!g.BUNDLE_ID)       issues.push({ text:'Bundle ID missing', type:'ip-warn' });
+  if (g.EPU_CHECKED && !g.EPU) issues.push({ text:'No events in the last 14 days', type:'ip-warn' });
+  if (g.EPU_CHECKED && g.EPU) {
+    const s = epuStatus(g);
+    if (s.level === 'testing') issues.push({ text:'Events look like internal testing only', type:'ip-warn' });
+  }
+  if (jiraStatus.level === 'fail')
+    issues.push({ text:'Jira tickets not created', type:'ip-action' });
+  else if (jiraStatus.level === 'warn')
+    issues.push({ text:`Jira incomplete: ${jiraStatus.issues.join('; ')}`, type:'ip-action' });
+  if (!hasCal) issues.push({ text:'No calendar event set', type:'ip-action' });
+  return issues;
+}
+
+function renderIssuesPanel(visible) {
+  const urgent = visible.filter(g => isThisWeek(g.SL_DATE) || isNextWeek(g.SL_DATE));
+  const withIssues = urgent.map(g => ({ g, issues: getGameIssues(g) })).filter(x => x.issues.length > 0);
+  const el = document.getElementById('radar-issues');
+  if (withIssues.length === 0) { el.innerHTML = ''; return; }
+  const sections = withIssues.map(({ g, issues }) => {
+    const bullets = issues.map(i => `
+      <li class="issue-bullet ${i.type}">
+        <span class="ib-dot"></span>
+        <span class="ib-text">${i.text}</span>
+      </li>`).join('');
+    return `
+      <div class="issue-section">
+        <div class="issue-game-header">
+          <span class="issue-game-name">${g.APPLICATION_NAME}</span>
+          ${whenBadge(g.SL_DATE)}
+          <span style="font-size:11px;color:#6b7280">${fmtDate(g.SL_DATE)}</span>
+        </div>
+        <ul class="issue-bullets">${bullets}</ul>
+      </div>`;
+  }).join('');
+  el.innerHTML = `
+    <div class="issues-card">
+      <div class="issues-card-header">
+        <span class="issues-card-title">Needs Attention (${withIssues.length} game${withIssues.length !== 1 ? 's' : ''})</span>
+      </div>
+      ${sections}
+    </div>`;
+}
+
+// ════════════════════════════════════════════════
+// RENDER — GAME RADAR
+// ════════════════════════════════════════════════
+function renderRadar() {
+  renderStudioChips('studio-chips');
+  const visible  = allGames.filter(g => selectedStudios.has(g.STUDIO_NAME || 'Unknown'));
+  const upcoming = visible.filter(g => !isPast(g.SL_DATE));
+  const released = visible.filter(g => isPast(g.SL_DATE));
+
+  function buildRows(games) {
+    return games.map(g => {
+      const hasCal     = hasCalEvent(g.APPLICATION_NAME);
+      const jiraStatus = getJiraStatus(g.APPLICATION_NAME, g.ANALYTICAL_NAME);
+      const hasJira    = jiraStatus.level === 'pass';
+      const aWarn      = isAdjustWarn(g);
+      return `<tr>
+        <td>
+          <div class="game-name">${g.APPLICATION_NAME || '—'}</div>
+          <div class="${g.ANALYTICAL_NAME ? 'game-sub' : 'game-no-an'}">${g.ANALYTICAL_NAME || '⚠ No analytical name'}</div>
+        </td>
+        <td style="white-space:nowrap">${g.STUDIO_NAME || '—'}</td>
+        <td style="white-space:nowrap">${whenBadge(g.SL_DATE)}<div style="font-size:11px;color:#6b7280;margin-top:3px">${fmtDate(g.SL_DATE)}</div></td>
+        <td class="center">${ck(g.ANALYTICAL_NAME)}</td>
+        <td class="center">${ck(g.GAME_SERVER_ID)}</td>
+        <td class="center">${ck(g.ADJUST_IOS, aWarn)}</td>
+        <td class="center">${ck(g.ADJUST_ANDROID, aWarn)}</td>
+        <td class="center">${ck(g.BUNDLE_ID)}</td>
+        <td class="center">${epuCell(g)}</td>
+        <td class="center">${ck(hasCal)}</td>
+        <td class="center">${jiraBadge(g.APPLICATION_NAME, g.ANALYTICAL_NAME)}</td>
+        <td>${statusBadge(g, hasCal, hasJira)}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  const tableHeader = `<table>
+    <thead><tr>
+      <th>App Name</th><th>Studio</th><th>Soft Launch</th>
+      <th title="Analytical Name">AN</th><th title="Game Server ID">GS ID</th>
+      <th title="Adjust Token iOS">iOS Adj</th><th title="Adjust Token Android">And Adj</th>
+      <th title="Bundle ID">Bundle</th>
+      <th title="Events in events_production_union (last 14 days)">Events</th>
+      <th title="Calendar SL event">Calendar</th>
+      <th title="Jira AS Story">Jira</th><th>Status</th>
+    </tr></thead><tbody>`;
+
+  const thisWeekN = upcoming.filter(g => isThisWeek(g.SL_DATE)).length;
+  const nextWeekN = upcoming.filter(g => isNextWeek(g.SL_DATE)).length;
+  const readyN    = upcoming.filter(g => {
+    const missing = getMissing(g);
+    return missing.length === 0 && !isAdjustWarn(g) && hasCalEvent(g.APPLICATION_NAME) && getJiraStatus(g.APPLICATION_NAME, g.ANALYTICAL_NAME).level === 'pass';
+  }).length;
+  document.getElementById('radar-chips').innerHTML = `
+    <span class="badge b-purple">📅 ${thisWeekN} this week</span>
+    <span class="badge b-blue">🗓 ${nextWeekN} next week</span>
+    <span class="badge b-green">✓ ${readyN} ready</span>
+    <span class="badge b-gray">${upcoming.length} shown</span>`;
+  document.getElementById('radar-chips').style.display = 'flex';
+
+  document.getElementById('radar-table').innerHTML = upcoming.length === 0
+    ? '<div class="empty-state">No upcoming games match the current studio filter</div>'
+    : tableHeader + buildRows(upcoming) + `</tbody></table>`;
+
+  const releasedCard = document.getElementById('released-card');
+  if (released.length > 0) {
+    releasedCard.style.display = '';
+    const liveN = released.filter(g => epuStatus(g).level === 'live').length;
+    document.getElementById('released-chips').innerHTML = `
+      <span class="badge b-green">${released.length} released</span>
+      <span class="badge b-green">${liveN} live EPU</span>`;
+    document.getElementById('released-table').innerHTML = tableHeader + buildRows(released) + `</tbody></table>`;
+  } else {
+    releasedCard.style.display = 'none';
+  }
+
+  renderIssuesPanel(visible);
+}
+
+// ════════════════════════════════════════════════
+// RENDER — ETL PROCESS
+// ════════════════════════════════════════════════
+function renderWeek() {
+  renderStudioChips('week-studio-chips');
+  const visible = allGames.filter(g => selectedStudios.has(g.STUDIO_NAME || 'Unknown'));
+  const thisWeekGames = visible.filter(g => isThisWeek(g.SL_DATE));
+  const nextWeekGames = visible.filter(g => isNextWeek(g.SL_DATE));
+  const liveEPUGames  = visible.filter(g => {
+    const s = epuStatus(g);
+    return s.level === 'live' && !isThisWeek(g.SL_DATE) && !isNextWeek(g.SL_DATE);
+  });
+  const allLiveEPUCount = visible.filter(g => epuStatus(g).level === 'live').length;
+  const allInScope = [...thisWeekGames, ...nextWeekGames, ...liveEPUGames];
+  const totalNeedJira = allInScope.filter(g => getJiraStatus(g.APPLICATION_NAME, g.ANALYTICAL_NAME).level !== 'pass').length;
+  const totalNeedCal  = allInScope.filter(g => !hasCalEvent(g.APPLICATION_NAME)).length;
+
+  const chipsEl = document.getElementById('week-summary-chips');
+  if (chipsEl) chipsEl.innerHTML = `
+    <span class="badge b-purple">${thisWeekGames.length} this week</span>
+    <span class="badge b-blue">${nextWeekGames.length} following week</span>
+    <span class="badge b-green">${allLiveEPUCount} live EPU</span>
+    <span class="badge b-red">${totalNeedJira} need Jira</span>
+    <span class="badge b-amber">${totalNeedCal} need Calendar</span>`;
+
+  if (allInScope.length === 0) {
+    document.getElementById('week-table').innerHTML = '<div class="empty-state">🎉 No games in scope for ETL Process</div>';
+    return;
+  }
+
+  function renderSection(games, sectionTitle, borderColor) {
+    if (games.length === 0) return '';
+    const rows = games.map(g => {
+      const jiraStatus = getJiraStatus(g.APPLICATION_NAME, g.ANALYTICAL_NAME);
+      const hasJira    = jiraStatus.level === 'pass';
+      const hasCal     = hasCalEvent(g.APPLICATION_NAME);
+      const missing    = getMissing(g);
+      const aWarn      = isAdjustWarn(g);
+      const dataIssues = [...missing, ...(aWarn ? ['Adjust tokens identical'] : [])];
+      const epu = epuStatus(g);
+      const epuBadge = epu.level === 'live'    ? '<span class="badge b-green">✓ Live</span>'
+                     : epu.level === 'testing' ? '<span class="badge b-yellow">Testing</span>'
+                     : epu.level === 'none'    ? '<span class="badge b-red">No events</span>'
+                     : '<span class="badge b-gray">—</span>';
+      const allDone = hasJira && hasCal;
+      const btnLabel = !hasJira && !hasCal ? 'Create Jira + Calendar →'
+                     : !hasJira            ? 'Create Jira →'
+                     :                       'Create Calendar →';
+      return `<tr${allDone ? ' style="opacity:0.45"' : ''}>
+        <td>
+          <div class="game-name">${g.APPLICATION_NAME}</div>
+          <div class="game-sub">${g.ANALYTICAL_NAME || '—'}</div>
+        </td>
+        <td style="white-space:nowrap">${fmtDate(g.SL_DATE)}</td>
+        <td>${g.STUDIO_NAME || '—'}</td>
+        <td>${epuBadge}</td>
+        <td>${jiraBadge(g.APPLICATION_NAME, g.ANALYTICAL_NAME)}</td>
+        <td>${hasCal ? '<span class="badge b-green">✓ Cal</span>' : '<span class="badge b-red">✗ Cal</span>'}</td>
+        <td>${dataIssues.length === 0
+          ? '<span class="badge b-green">Complete</span>'
+          : dataIssues.slice(0,2).map(i=>`<span class="badge b-red" style="font-size:10px">${i}</span>`).join(' ')}</td>
+        <td>
+          ${allDone
+            ? '<span style="color:#9ca3af;font-size:12px">Done ✓</span>'
+            : `<button class="btn btn-go" style="font-size:11px;padding:5px 11px" onclick="alert('Static snapshot — Jira creation not available.')">${btnLabel}</button>`}
+        </td>
+      </tr>`;
+    }).join('');
+    return `
+      <div style="margin:16px 18px 0; border-radius:8px; border:1px solid ${borderColor}25; overflow:hidden;">
+        <div style="padding:10px 16px; font-size:12px; font-weight:700; color:${borderColor}; background:${borderColor}0d; border-bottom:1px solid ${borderColor}25;">
+          ${sectionTitle}
+        </div>
+        <div class="overflow-x">
+          <table>
+            <thead><tr>
+              <th>App</th><th>Soft Launch</th><th>Studio</th>
+              <th>EPU</th><th>Jira</th><th>Calendar</th><th>Data Gaps</th><th>Action</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      </div>`;
+  }
+
+  const wb  = getWeekBounds();
+  const nwb = getNextWeekBounds();
+  document.getElementById('week-table').innerHTML =
+    renderSection(thisWeekGames, `This Week (${fmtDateRange(wb.start, wb.end)})`, '#7c3aed') +
+    renderSection(nextWeekGames, `Following Week (${fmtDateRange(nwb.start, nwb.end)})`, '#1d4ed8') +
+    (liveEPUGames.length > 0 ? renderSection(liveEPUGames, 'Live EPU — already soft-launched', '#166534') : '') +
+    '<div style="height:16px"></div>';
+}
+
+// ════════════════════════════════════════════════
+// DQ — PLATFORM FILTER
+// ════════════════════════════════════════════════
+function filterDQPlatform(p, btn) {
+  document.querySelectorAll('.pf-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  document.querySelectorAll('#dq-results tr[data-platform]').forEach(row => {
+    row.style.display = (p === 'all' || row.dataset.platform === p) ? '' : 'none';
+  });
+}
+
+// ════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════
+renderRadar();
+renderWeek();
 </script>
 </body>
 </html>
