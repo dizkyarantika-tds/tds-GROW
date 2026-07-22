@@ -1,0 +1,2289 @@
+<!DOCTYPE html>
+<script type="application/json" id="cowork-artifact-meta">
+{
+  "name": "Game Launch Monitor",
+  "schemaVersion": 1,
+  "description": "Game Launch Monitor — tracks all upcoming games from Snowflake, checks data completeness (analytical name, GS ID, adjust tokens, bundle ID), Jira ticket status, and runs DQ checks per game across key tables.",
+  "mcpTools": [
+    "mcp__57ece3bd-7033-41cc-a05f-35566b1f55dd__run_snowflake_query",
+    "mcp__3b48b019-037d-4ad4-897a-13acde16df78__searchJiraIssuesUsingJql",
+    "mcp__3b48b019-037d-4ad4-897a-13acde16df78__createJiraIssue",
+    "mcp__3b48b019-037d-4ad4-897a-13acde16df78__editJiraIssue",
+    "mcp__3b48b019-037d-4ad4-897a-13acde16df78__createIssueLink",
+  ],
+  "mcpServerNames": [
+    "TDG Snowflake MCP",
+    "Atlassian",
+    "Atlassian",
+    "Atlassian",
+    "Atlassian",
+    "Google Calendar"
+  ]
+}
+</script>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GROW</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root { color-scheme: light; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: #f8f9fb;
+  color: #1a1a2e;
+  font-size: 14px;
+}
+
+.header {
+  background: white;
+  border-bottom: 1px solid #e5e7eb;
+  padding: 16px 24px 0;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.header-title-block { display: flex; flex-direction: column; gap: 1px; }
+.header h1 { font-size: 22px; font-weight: 800; color: #111827; letter-spacing: -0.5px; line-height: 1; }
+.header-subtitle { font-size: 10px; font-weight: 500; color: #9ca3af; letter-spacing: 0.6px; text-transform: uppercase; margin-top: 3px; }
+.last-updated { font-size: 11px; color: #9ca3af; }
+
+.tabs { display: flex; }
+.tab-btn {
+  padding: 10px 20px;
+  border: none;
+  background: transparent;
+  color: #6b7280;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s;
+}
+.tab-btn:hover { color: #374151; }
+.tab-btn.active { color: #4f46e5; border-bottom-color: #4f46e5; }
+
+.main { padding: 20px 24px; }
+
+.status-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  font-size: 12px;
+  color: #6b7280;
+}
+.dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; flex-shrink: 0; }
+.dot.loading { background: #f59e0b; animation: pulse 1s infinite; }
+.dot.error { background: #ef4444; }
+@keyframes pulse { 0%,100%{opacity:1}50%{opacity:.3} }
+
+.card {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+.card-header {
+  padding: 14px 18px;
+  border-bottom: 1px solid #f3f4f6;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.card-title { font-size: 14px; font-weight: 600; color: #111827; }
+.card-sub { font-size: 11px; color: #9ca3af; margin-top: 2px; }
+
+.flag-item {
+  display: flex;
+  gap: 8px;
+  padding: 8px 14px;
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+  border-radius: 6px;
+  font-size: 12px;
+  color: #92400e;
+  margin-bottom: 6px;
+}
+
+table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 800px; }
+th {
+  text-align: left;
+  padding: 9px 14px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #6b7280;
+  background: #f9fafb;
+  white-space: nowrap;
+  border-bottom: 1px solid #e5e7eb;
+}
+td {
+  padding: 10px 14px;
+  border-bottom: 1px solid #f3f4f6;
+  vertical-align: middle;
+  color: #374151;
+}
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: #fafafa; }
+
+.game-name { font-weight: 600; color: #111827; white-space: nowrap; }
+.game-sub { font-size: 11px; color: #6b7280; font-family: monospace; margin-top: 2px; }
+.game-no-an { font-size: 11px; color: #dc2626; margin-top: 2px; }
+
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  margin: 1px 2px;
+}
+.b-green  { background: #dcfce7; color: #166534; }
+.b-red    { background: #fee2e2; color: #991b1b; }
+.b-yellow { background: #fef9c3; color: #854d0e; }
+.b-purple { background: #ede9fe; color: #5b21b6; }
+.b-blue   { background: #dbeafe; color: #1d4ed8; }
+.b-amber  { background: #fef3c7; color: #92400e; }
+.b-gray   { background: #f3f4f6; color: #6b7280; }
+.t1 { background: #fee2e2; color: #991b1b; }
+.t2 { background: #fef9c3; color: #854d0e; }
+.t3 { background: #dbeafe; color: #1d4ed8; }
+
+.ck { font-size: 14px; }
+.ck-ok   { color: #16a34a; }
+.ck-fail { color: #dc2626; }
+.ck-warn { color: #d97706; cursor: help; }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  transition: all 0.15s;
+}
+.btn-go      { background: #4f46e5; color: white; }
+.btn-go:hover{ background: #4338ca; }
+.btn-refresh { background: white; border: 1px solid #d1d5db; color: #374151; }
+.btn-refresh:hover { background: #f9fafb; }
+.btn-run     { background: #4f46e5; color: white; padding: 8px 18px; font-size: 13px; }
+.btn-run:hover { background: #4338ca; }
+
+.chips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 10px 18px;
+  border-bottom: 1px solid #f3f4f6;
+  background: #fafafa;
+}
+
+.filter-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 10px 18px;
+  border-bottom: 1px solid #f3f4f6;
+  background: white;
+}
+.filter-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+}
+.studio-chip {
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid #d1d5db;
+  cursor: pointer;
+  background: white;
+  color: #374151;
+  transition: all 0.15s;
+}
+.studio-chip.on  { background: #4f46e5; color: white; border-color: #4f46e5; }
+.studio-chip.off { background: white;   color: #9ca3af; border-color: #e5e7eb; }
+
+.issues-card {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+.issues-card-header {
+  padding: 12px 18px;
+  border-bottom: 1px solid #f3f4f6;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fffbeb;
+}
+.issues-card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #92400e;
+}
+.issue-section { border-bottom: 1px solid #f3f4f6; }
+.issue-section:last-child { border-bottom: none; }
+.issue-game-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px 6px;
+  flex-wrap: wrap;
+}
+.issue-game-name { font-weight: 600; font-size: 13px; color: #111827; }
+.issue-bullets { list-style: none; padding: 2px 18px 12px; margin: 0; }
+.issue-bullet {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 4px 0;
+}
+.ib-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-top: 5px;
+}
+.ip-block .ib-dot  { background: #ef4444; }
+.ip-warn  .ib-dot  { background: #f59e0b; }
+.ip-action .ib-dot { background: #3b82f6; }
+.ib-text { font-size: 12px; color: #374151; line-height: 1.5; }
+
+.dq-controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 14px 18px;
+  border-bottom: 1px solid #f3f4f6;
+}
+.dq-select {
+  padding: 7px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #374151;
+  background: white;
+}
+#dq-game { min-width: 280px; }
+#dq-days { min-width: 130px; }
+
+.loading-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  color: #9ca3af;
+  gap: 10px;
+  font-size: 13px;
+}
+.spinner {
+  width: 18px; height: 18px;
+  border: 2px solid #e5e7eb;
+  border-top-color: #4f46e5;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.empty-state { text-align: center; padding: 40px; color: #9ca3af; font-size: 13px; }
+
+.tab-pane { display: none; }
+.tab-pane.active { display: block; }
+
+.week-banner { border-left: 4px solid #4f46e5; }
+.week-banner .card-header { background: linear-gradient(135deg, #f5f3ff, #ede9fe); }
+
+.overflow-x { overflow-x: auto; }
+
+td.center { text-align: center; }
+
+.tier-section { margin: 16px 0; }
+.tier-header { font-size: 13px; font-weight: 700; color: #374151; margin: 16px 0 8px; padding: 6px 10px; background: #f3f4f6; border-radius: 6px; border-left: 3px solid #6366f1; }
+.dq-check { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 12px; overflow: hidden; }
+.dq-check-header { display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: #f9fafb; border-bottom: 1px solid #e5e7eb; flex-wrap: wrap; }
+.dq-check-title { font-family: monospace; font-size: 12px; font-weight: 600; color: #1f2937; flex: 1; }
+.dq-summaries { display: flex; gap: 8px; padding: 8px 14px; flex-wrap: wrap; border-bottom: 1px solid #f3f4f6; }
+.dq-summary { font-size: 12px; color: #374151; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 4px; padding: 3px 8px; }
+.dq-summary.warn { background: #fffbeb; border-color: #fde68a; }
+.dq-summary.bad  { background: #fef2f2; border-color: #fecaca; }
+.dq-table-wrap { padding: 10px 14px; overflow-x: auto; }
+.dq-table-wrap table { width: 100%; font-size: 12px; }
+.dq-placeholder { padding: 12px 14px; color: #9ca3af; font-size: 12px; font-style: italic; }
+.dq-table-wrap { padding: 0; overflow: auto; max-height: 340px; }
+.dq-table-wrap table { width: max-content; min-width: 100%; font-size: 12px; }
+.dq-table-wrap thead th { position: sticky; top: 0; z-index: 2; background: #f9fafb; border-bottom: 1px solid #e5e7eb; }
+.dq-flags-inner { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 14px; border-bottom: 1px solid #f3f4f6; }
+.dq-flag { display: inline-flex; align-items: center; padding: 2px 8px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 4px; font-size: 11px; color: #dc2626; font-weight: 500; }
+
+.dq-platform-filter { display: none; align-items: center; gap: 8px; margin-left: auto; }
+.pf-btn {
+  padding: 4px 12px;
+  border-radius: 12px;
+  border: 1px solid #d1d5db;
+  background: white;
+  color: #6b7280;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: inherit;
+}
+.pf-btn.active { background: #4f46e5; color: white; border-color: #4f46e5; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-top">
+    <div class="header-title-block">
+      <h1>GROW</h1>
+      <span class="header-subtitle">Game Release Onboarding Workflow</span>
+    </div>
+    <span class="last-updated" id="last-updated">—</span>
+  </div>
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('radar')">Game Release</button>
+    <button class="tab-btn" onclick="switchTab('week')">ETL Process</button>
+    <button class="tab-btn" onclick="switchTab('dq')">Data Quality</button>
+  </div>
+</div>
+
+<div class="main">
+  <div class="status-bar">
+    <div class="dot loading" id="status-dot"></div>
+    <span id="status-text">Loading...</span>
+    <button class="btn btn-refresh" onclick="refresh()" style="margin-left:auto">↺ Refresh</button>
+  </div>
+
+  <!-- ── GAME RADAR ── -->
+  <div class="tab-pane active" id="tab-radar">
+    <div id="radar-issues"></div>
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Upcoming Releases</div>
+          <div class="card-sub">Snowflake · Jira · Calendar</div>
+        </div>
+        <div class="chips" id="radar-chips" style="padding:0;border:none;background:transparent;gap:6px"></div>
+      </div>
+      <div class="filter-row" id="studio-filter" style="display:none">
+        <span class="filter-label">Studio</span>
+        <div id="studio-chips"></div>
+      </div>
+      <div class="overflow-x">
+        <div id="radar-table"><div class="loading-state"><div class="spinner"></div> Querying Snowflake...</div></div>
+      </div>
+    </div>
+    <div class="card" id="released-card" style="margin-top:16px;display:none">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Now Live</div>
+          <div class="card-sub">Games past their soft launch date</div>
+        </div>
+        <div class="chips" id="released-chips" style="padding:0;border:none;background:transparent;gap:6px"></div>
+      </div>
+      <div class="overflow-x">
+        <div id="released-table"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── PHASE 2 ── -->
+  <div class="tab-pane" id="tab-week">
+    <div class="card week-banner">
+      <div class="card-header">
+        <div>
+          <div class="card-title">ETL Process</div>
+          <div class="card-sub" id="week-label"></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <div id="week-summary-chips" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+          <button id="refresh-jira-btn" class="btn btn-refresh" onclick="refreshJira()" style="font-size:11px;padding:4px 10px;white-space:nowrap">↺ Refresh Jira</button>
+        </div>
+      </div>
+      <div class="filter-row" id="week-studio-filter" style="display:none">
+        <span class="filter-label">Studio</span>
+        <div id="week-studio-chips" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+      </div>
+      <div id="week-table"><div class="loading-state"><div class="spinner"></div></div></div>
+    </div>
+  </div>
+
+  <!-- ── DATA QUALITY ── -->
+  <div class="tab-pane" id="tab-dq">
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Data Quality Checks</div>
+          <div class="card-sub">Run checks across Snowflake tables for a specific game</div>
+        </div>
+      </div>
+      <div class="dq-controls">
+        <select class="dq-select" id="dq-game"><option value="">Select a game...</option></select>
+        <select class="dq-select" id="dq-days">
+          <option value="7">Last 7 days</option>
+          <option value="14">Last 14 days</option>
+          <option value="30">Last 30 days</option>
+        </select>
+        <button class="btn btn-run" onclick="runDQ()">▶ Run Checks</button>
+        <div class="dq-platform-filter" id="dq-platform-filter">
+          <span style="font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.04em">Platform</span>
+          <button class="pf-btn active" onclick="filterDQPlatform('all',this)">All</button>
+          <button class="pf-btn" onclick="filterDQPlatform('android',this)">Android</button>
+          <button class="pf-btn" onclick="filterDQPlatform('ios',this)">iOS</button>
+        </div>
+      </div>
+      <div class="overflow-x">
+        <div id="dq-results"><div class="empty-state">Select a game above and click Run Checks</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════════
+let allGames       = [];
+let jiraData       = {}; // normalizedGameKey → { story, tasks: {etl, dds, dashboard, crashlytics} }
+let weekGamesMap   = {}; // APPLICATION_NAME → full game object (populated by renderWeek)
+let selectedStudios = new Set(); // empty = all shown (populated after load)
+
+// ════════════════════════════════════════════════
+// DQ TABLE REGISTRY
+// Add new tables here — tier: 1=critical, 2=important, 3=nice-to-have
+// ════════════════════════════════════════════════
+const DQ_TABLES = [
+  { schema:'tds_db.public', table:'activity_summary_report_new', appCol:'APP',         filter:'ILIKE', dateCol:'DATE', tier:1, desc:'Ad & revenue summary'        },
+  { schema:'tds_db.public', table:'f_user_activity',             appCol:'APPLICATION', filter:'EXACT', dateCol:'DT',   tier:1, desc:'User activity & sessions'     },
+  { schema:'tds_db.public', table:'f_installs',                  appCol:'APPLICATION', filter:'EXACT', dateCol:'DT',   tier:1, desc:'Install tracking'             },
+  { schema:'tds_db.bi_dev', table:'f_levels_user',               appCol:'APPLICATION', filter:'EXACT', dateCol:'DT',   tier:2, desc:'Level attempt data'           },
+];
+
+// ════════════════════════════════════════════════
+// HELPERS
+// ════════════════════════════════════════════════
+function getWeekBounds() {
+  const now = new Date();
+  const day = now.getDay();
+  const mon = new Date(now);
+  mon.setDate(now.getDate() - (day === 0 ? 6 : day - 1));
+  const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+  const iso = d => d.toISOString().split('T')[0];
+  const lbl = d => d.toLocaleDateString('en-GB', { day:'numeric', month:'short' });
+  return { start: iso(mon), end: iso(sun), label: `${lbl(mon)} – ${lbl(sun)} ${sun.getFullYear()}` };
+}
+
+function isThisWeek(d) {
+  const { start, end } = getWeekBounds();
+  return d && d >= start && d <= end;
+}
+
+function getNextWeekBounds() {
+  const { start } = getWeekBounds();
+  const nextMon = new Date(start + 'T12:00:00Z');
+  nextMon.setUTCDate(nextMon.getUTCDate() + 7);
+  const nextSun = new Date(nextMon);
+  nextSun.setUTCDate(nextMon.getUTCDate() + 6);
+  const iso = d => d.toISOString().split('T')[0];
+  return { start: iso(nextMon), end: iso(nextSun) };
+}
+
+function isNextWeek(d) {
+  const { start, end } = getNextWeekBounds();
+  return d && d >= start && d <= end;
+}
+
+function isPast(slDate) {
+  if (!slDate) return false;
+  const { start } = getWeekBounds();
+  // Only "released" if SL_DATE is before this week's Monday
+  return slDate < start;
+}
+
+function whenBadge(slDate) {
+  if (isThisWeek(slDate)) return '<span class="badge b-purple">This Week</span>';
+  if (isPast(slDate)) return '<span class="badge b-green">Released</span>';
+  if (isNextWeek(slDate)) return '<span class="badge b-blue">Following Week</span>';
+  return '<span class="badge b-gray">Upcoming</span>';
+}
+
+function fmtDate(s) {
+  if (!s) return '—';
+  return new Date(s + 'T12:00:00Z').toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' });
+}
+
+function fmtDateRange(startIso, endIso) {
+  const s = new Date(startIso + 'T12:00:00Z');
+  const e = new Date(endIso   + 'T12:00:00Z');
+  const sDay = s.getUTCDate();
+  const eDay = e.getUTCDate();
+  const sMonth = s.toLocaleDateString('en-GB', { month: 'short', timeZone: 'UTC' });
+  const eMonth = e.toLocaleDateString('en-GB', { month: 'short', timeZone: 'UTC' });
+  const eYear  = e.getUTCFullYear();
+  if (s.getUTCMonth() === e.getUTCMonth()) {
+    return `${sDay}–${eDay} ${eMonth} ${eYear}`;
+  }
+  return `${sDay} ${sMonth} – ${eDay} ${eMonth} ${eYear}`;
+}
+
+function inferGroup(name) {
+  const n = (name || '').toLowerCase();
+  if (n.includes('sort'))   return 'Sort';
+  if (n.includes('block'))  return 'Blocks';
+  if (n.includes('card'))   return 'Cards';
+  if (n.includes('tile'))   return 'Tiles';
+  if (n.includes('casino') || n.includes('slot')) return 'Casino';
+  if (n.includes('iap'))    return 'IAP';
+  return 'Others';
+}
+
+
+// ─── Jira helpers ───────────────────────────────
+function fuzzyGameKey(name) {
+  // Lowercase, strip subtitle after ":", dashes/underscores → spaces, collapse whitespace
+  return (name || '')
+    .split(':')[0]
+    .toLowerCase()
+    .replace(/[-_]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function extractSummaryParts(summary) {
+  // "(Game) - (description)" → { gameName, desc }
+  const idx = summary.indexOf(' - ');
+  if (idx === -1) return { gameName: summary.trim(), desc: '' };
+  return { gameName: summary.substring(0, idx).trim(), desc: summary.substring(idx + 3).trim() };
+}
+
+function hasTerm(str, terms) {
+  // All terms must appear (case-insensitive, dashes treated as spaces)
+  const lower = (str || '').toLowerCase().replace(/[-_]/g, ' ');
+  return terms.every(t => lower.includes(t.toLowerCase()));
+}
+
+function classifyIssue(entry, issue, desc) {
+  // Normalize: lowercase, collapse dots/dashes/underscores/spaces to single space
+  const n = (desc || '').toLowerCase().replace(/[.\-_]/g, ' ').replace(/\s+/g, ' ').trim();
+  const isStory = (issue.fields.issuetype?.name || '').toLowerCase() === 'story';
+
+  // ETL — "Add New App to ETLs" (matches "ETL" and "ETLs", story or task)
+  if (/\betl/i.test(n)) {
+    if (isStory) {
+      entry.story = true;
+      if (issue.key && !entry.storyKey) entry.storyKey = issue.key; // store for partial creation
+    }
+    else entry.tasks.etl = true;
+  }
+  // Crashlytics — "Add to Crashlytics Pipeline"
+  if (/crashlytics/i.test(n)) entry.tasks.crashlytics = true;
+  // BI Dashboard — "Review and Add to BI-Supported Dashboard"
+  if (/dashboard/i.test(n)) entry.tasks.dashboard = true;
+  // dds.application — "Add New App to dds.application"
+  if (/\bdds\b/i.test(n) && /\bapplication\b/i.test(n)) entry.tasks.dds = true;
+}
+
+function getJiraStatus(applicationName, analyticalName) {
+  const key    = fuzzyGameKey(applicationName);
+  const altKey = fuzzyGameKey(analyticalName);
+  const entry  = jiraData[key] || jiraData[altKey] || null;
+
+  if (!entry) return { level: 'fail', issues: ['No tickets found'] };
+
+  const missing = [];
+  if (!entry.story)             missing.push('ETL story');
+  if (!entry.tasks.etl)         missing.push('ETL task');
+  if (!entry.tasks.crashlytics) missing.push('Crashlytics task');
+  if (!entry.tasks.dashboard)   missing.push('BI Dashboard task');
+  if (!entry.tasks.dds)         missing.push('dds.application task');
+
+  if (missing.length === 0) return { level: 'pass' };
+  return { level: 'warn', issues: missing.map(m => `Missing: ${m}`) };
+}
+
+function jiraBadge(applicationName, analyticalName) {
+  const s = getJiraStatus(applicationName, analyticalName);
+  if (s.level === 'pass') return '<span class="badge b-green">✓ Jira</span>';
+  if (s.level === 'warn') {
+    const tip = s.issues.join('\n');
+    return `<span class="badge b-yellow" title="${tip}" style="cursor:help">⚠ Jira</span>`;
+  }
+  return '<span class="badge b-red">✗ Jira</span>';
+}
+
+async function fetchJiraData(games) {
+  if (!games || games.length === 0) return {};
+
+  const names = games
+    .map(g => (g.APPLICATION_NAME || g.ANALYTICAL_NAME || '').replace(/"/g, '').trim())
+    .filter(Boolean);
+  if (names.length === 0) return {};
+
+  // Batch into groups of 5 to stay well under Jira's 100-result cap
+  const BATCH = 5;
+  let allIssues = [];
+  for (let i = 0; i < names.length; i += BATCH) {
+    const chunk = names.slice(i, i + BATCH);
+    const nameClause = chunk.map(n => `summary ~ "${n}"`).join(' OR ');
+    const jql = `project in ("AS","DS") AND (${nameClause}) AND created >= -90d ORDER BY created DESC`;
+    try {
+      const r = await window.cowork.callMcpTool(
+        'mcp__3b48b019-037d-4ad4-897a-13acde16df78__searchJiraIssuesUsingJql',
+        { cloudId: JIRA_CLOUD, jql, fields: ['summary', 'issuetype'], maxResults: 50, searchResultMode: 'issues' }
+      );
+      const parsed = parseMcp(r);
+      const issues = Array.isArray(parsed.issues) ? parsed.issues : (parsed.issues?.nodes || []);
+      allIssues = allIssues.concat(issues);
+    } catch(e) {
+      console.warn(`Jira batch ${i}–${i+BATCH} error:`, e.message);
+    }
+  }
+
+  // Reverse lookup: any fuzzy variant → canonical gameKey (APPLICATION_NAME based)
+  const keyMap = {};
+  games.forEach(g => {
+    const gameKey = fuzzyGameKey(g.APPLICATION_NAME);
+    const altKey  = fuzzyGameKey(g.ANALYTICAL_NAME);
+    keyMap[gameKey] = gameKey;
+    if (altKey && !keyMap[altKey]) keyMap[altKey] = gameKey;
+  });
+
+  const data = {};
+  allIssues.forEach(issue => {
+    const { gameName, desc } = extractSummaryParts(issue.fields?.summary || '');
+    const ticketKey = fuzzyGameKey(gameName);
+    const gameKey = keyMap[ticketKey];
+    if (!gameKey) return;
+
+    if (!data[gameKey]) data[gameKey] = {
+      gameName,
+      story: false,
+      storyKey: null,
+      tasks: { etl: false, crashlytics: false, dashboard: false, dds: false }
+    };
+    classifyIssue(data[gameKey], issue, desc);
+  });
+  return data;
+}
+
+function getMissing(g) {
+  const m = [];
+  if (!g.ANALYTICAL_NAME)  m.push('Analytical Name');
+  if (!g.GAME_SERVER_ID)   m.push('Game Server ID');
+  if (!g.ADJUST_IOS)       m.push('Adjust iOS');
+  if (!g.ADJUST_ANDROID)   m.push('Adjust Android');
+  if (!g.BUNDLE_ID)        m.push('Bundle ID');
+  return m;
+}
+
+function isAdjustWarn(g) {
+  return !!(g.ADJUST_IOS && g.ADJUST_ANDROID && g.ADJUST_IOS === g.ADJUST_ANDROID);
+}
+
+function ck(val, warn) {
+  if (warn) return '<span class="ck ck-warn" title="iOS = Android — verify">⚠</span>';
+  return val
+    ? '<span class="ck ck-ok">✓</span>'
+    : '<span class="ck ck-fail">✗</span>';
+}
+
+function epuStatus(g) {
+  // Returns { level: 'none'|'testing'|'live', label, tooltip }
+  if (!g.GAME_SERVER_ID) return { level: 'na' };
+  if (!g.EPU_CHECKED)    return { level: 'unknown' };
+  if (!g.EPU)            return { level: 'none', label: '✗ No events', tooltip: 'No events in last 14 days' };
+  const devices   = parseInt(g.EPU.DISTINCT_DEVICES || 0);
+  const gameStart = parseInt(g.EPU.GAME_START_COUNT || 0);
+  const gameEnd   = parseInt(g.EPU.GAME_END_COUNT   || 0);
+  const rows      = parseInt(g.EPU.ROW_COUNT || 0).toLocaleString();
+  const evtTypes  = parseInt(g.EPU.DISTINCT_EVENTS || 0);
+  const tip       = `${rows} rows · ${evtTypes} event types · ${devices} device models · ${gameStart} Game_Start · ${gameEnd} Game_End`;
+  if (devices > 5 && gameStart >= 5 && gameEnd >= 5) {
+    return { level: 'live', label: `Live · ${devices} dev`, tooltip: tip };
+  }
+  return { level: 'testing', label: `Testing · ${devices} dev`, tooltip: tip };
+}
+
+function epuCell(g) {
+  if (!g.GAME_SERVER_ID) return '<span style="color:#9ca3af;font-size:12px">—</span>';
+  if (!g.EPU_CHECKED)    return '<span style="color:#9ca3af;font-size:12px">—</span>'; // outside this/next week
+  if (g.EPU_ERROR)       return `<span class="badge b-red" title="${g.EPU_ERROR}">⚠ EPU error</span>`;
+  const s = epuStatus(g);
+  if (s.level === 'none')    return `<span class="badge b-red" title="${s.tooltip}">${s.label}</span>`;
+  if (s.level === 'testing') return `<span class="badge b-yellow" title="${s.tooltip}">🧪 ${s.label}</span>`;
+  if (s.level === 'live')    return `<span class="badge b-green" title="${s.tooltip}">✓ ${s.label}</span>`;
+  return '<span class="badge b-gray" title="Query unavailable">?</span>';
+}
+
+function statusBadge(g, hasJira) {
+  if (!g.ANALYTICAL_NAME) return '<span class="badge b-red">Blocked</span>';
+  const missing = getMissing(g);
+  const warn    = isAdjustWarn(g);
+  if (missing.length > 0 || warn) return '<span class="badge b-yellow">Needs Review</span>';
+  if (!hasJira)                   return '<span class="badge b-blue">Action Needed</span>';
+  return '<span class="badge b-green">Ready ✓</span>';
+}
+
+function setStatus(msg, state) {
+  document.getElementById('status-text').textContent = msg;
+  const d = document.getElementById('status-dot');
+  d.className = 'dot' + (state === 'loading' ? ' loading' : state === 'error' ? ' error' : '');
+}
+
+function switchTab(name) {
+  const names = ['radar','week','dq'];
+  document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.toggle('active', names[i] === name));
+  document.querySelectorAll('.tab-pane').forEach((p,i) => p.classList.toggle('active', names[i] === name));
+}
+
+// ════════════════════════════════════════════════
+// SAFE MCP RESPONSE PARSER
+// ════════════════════════════════════════════════
+function parseMcp(res) {
+  if (!res) throw new Error('No response from MCP tool');
+  if (res.isError) {
+    const msg = res.content?.[0]?.text || 'MCP tool returned an error';
+    throw new Error(msg);
+  }
+  if (res.structuredContent) return res.structuredContent;
+  const text = res.content?.[0]?.text || '';
+  try { return JSON.parse(text); } catch(_) { throw new Error(text || 'Empty MCP response'); }
+}
+
+// ════════════════════════════════════════════════
+// LOAD DATA
+// ════════════════════════════════════════════════
+const SF_TOOL = 'mcp__57ece3bd-7033-41cc-a05f-35566b1f55dd__run_snowflake_query';
+const SF_TIMEOUT_MS = 120000; // 2 min per query
+
+function withTimeout(promise, ms, label) {
+  const timer = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error(`${label} timed out after ${ms/1000}s`)), ms)
+  );
+  return Promise.race([promise, timer]);
+}
+
+async function runSF(sql, label) {
+  const res = await withTimeout(
+    window.cowork.callMcpTool(SF_TOOL, { statement: sql }),
+    SF_TIMEOUT_MS,
+    label || 'Snowflake query'
+  );
+  return parseMcp(res);
+}
+
+async function refreshJira() {
+  const btn = document.getElementById('refresh-jira-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Checking Jira...'; }
+  try {
+    jiraData = await withTimeout(fetchJiraData(allGames), SF_TIMEOUT_MS, 'Jira refresh');
+    renderWeek();
+    renderRadar();
+  } catch(e) {
+    console.warn('Jira refresh error:', e);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '↺ Refresh Jira'; }
+  }
+}
+
+async function refresh() {
+  setStatus('Loading...', 'loading');
+  document.getElementById('radar-table').innerHTML = '<div class="loading-state"><div class="spinner"></div> Fetching...</div>';
+  document.getElementById('week-table').innerHTML  = '<div class="loading-state"><div class="spinner"></div></div>';
+  document.getElementById('radar-chips').style.display = 'none';
+  document.getElementById('radar-issues').innerHTML = '';
+
+  let snowflakeOk = true;
+
+  // Step 1: Snowflake (game metadata)
+  setStatus('Loading Snowflake...', 'loading');
+
+  const [sfResult] = await Promise.allSettled([
+    // Snowflake game metadata
+    runSF(`
+      SELECT
+        app.NAME              AS APPLICATION_NAME,
+        app.ANALYTICAL_NAME,
+        app.PUBLIC_ID,
+        TO_CHAR(app.DATE_OF_SOFT_LAUNCH,'YYYY-MM-DD') AS SL_DATE,
+        s.NAME                AS STUDIO_NAME,
+        COALESCE(abv.DATA:android_bundle_id::VARCHAR, abv.DATA:ios_bundle_id::VARCHAR) AS BUNDLE_ID,
+        abv.DATA:android_bundle_id::VARCHAR        AS BUNDLE_ID_ANDROID,
+        abv.DATA:ios_bundle_id::VARCHAR            AS BUNDLE_ID_IOS,
+        abv.DATA:adjust_ios_app_token::VARCHAR     AS ADJUST_IOS,
+        abv.DATA:adjust_android_app_token::VARCHAR AS ADJUST_ANDROID,
+        abv.DATA:platforms::VARCHAR                AS PLATFORMS
+      FROM TDS_DB.RAW.AS_APPLICATIONS app
+      LEFT JOIN TDS_DB.RAW.AS_TEAMS t   ON app.TEAM_ID = t.ID
+      LEFT JOIN TDS_DB.RAW.AS_STUDIOS s ON t.STUDIO_ID = s.ID
+      LEFT JOIN TDS_DB.RAW.AS_APPLICATION_BUILD_VARIANTS abv ON app.ID = abv.APPLICATION_ID
+      LEFT JOIN TDS_DB.RAW.AS_BUILD_VARIANTS bv ON abv.BUILD_VARIANT_ID = bv.ID
+      WHERE app.DATE_OF_SOFT_LAUNCH >= DATEADD(day, -30, CURRENT_DATE)
+        AND (bv.KEY = 'default' OR bv.KEY IS NULL)
+      ORDER BY app.DATE_OF_SOFT_LAUNCH ASC
+      LIMIT 100
+    `, 'Game metadata'),
+
+  ]);
+
+  // Process Snowflake result
+  if (sfResult.status === 'fulfilled') {
+    allGames = sfResult.value.rows || [];
+  } else {
+    snowflakeOk = false;
+    allGames = [];
+    const msg = sfResult.reason?.message || 'Unknown error';
+    document.getElementById('radar-table').innerHTML =
+      `<div class="empty-state">⚠️ Snowflake unavailable — ${msg}<br><small style="color:#9ca3af">Reconnect the Snowflake connector in Cowork settings, then refresh.</small></div>`;
+    document.getElementById('week-table').innerHTML =
+      `<div class="empty-state">⚠️ Snowflake unavailable</div>`;
+  }
+
+
+
+  // Step 2: Jira — per-game queries using names from Snowflake
+  setStatus('Checking Jira tickets...', 'loading');
+  try {
+    jiraData = await withTimeout(fetchJiraData(allGames), SF_TIMEOUT_MS, 'Jira');
+  } catch(e) {
+    jiraData = {};
+    console.warn('Jira fetch error:', e);
+  }
+
+  // 2. Snowflake — game server IDs (depends on game list)
+  if (snowflakeOk && allGames.length > 0) {
+    try {
+      setStatus('Fetching Game Server IDs...', 'loading');
+      const ids = allGames.map(g => `'${g.PUBLIC_ID}'`).join(',');
+      const gsData = await runSF(`
+        SELECT PUBLIC_ID,
+          COALESCE(GS_APP_ID::VARCHAR, ZM_GS_APP_ID::VARCHAR,
+                   LDS_GS_APP_ID::VARCHAR, TT_GS_APP_ID::VARCHAR) AS GAME_SERVER_ID
+        FROM TDS_DB.RAW.TDS_APP_IDS
+        WHERE PUBLIC_ID IN (${ids})
+      `, 'GS IDs');
+      const gsMap = {};
+      (gsData.rows || []).forEach(r => gsMap[r.PUBLIC_ID] = r.GAME_SERVER_ID);
+      allGames.forEach(g => g.GAME_SERVER_ID = gsMap[g.PUBLIC_ID] || null);
+    } catch(e) {
+      allGames.forEach(g => g.GAME_SERVER_ID = null);
+    }
+  }
+
+  // 5. EPU — only this week + following week games (depends on GS IDs)
+  allGames.forEach(g => { g.EPU = null; g.EPU_CHECKED = false; });
+  if (snowflakeOk && allGames.length > 0) {
+    // EPU runs for this week + next week games only
+    const gsNumericIds = allGames
+      .filter(g => g.GAME_SERVER_ID && !isNaN(Number(g.GAME_SERVER_ID)) && (isThisWeek(g.SL_DATE) || isNextWeek(g.SL_DATE)))
+      .map(g => Number(g.GAME_SERVER_ID));
+    // Mark in-scope games as checked (will be set to actual data below)
+    const inScopeIds = new Set(gsNumericIds.map(String));
+    allGames.forEach(g => {
+      if (g.GAME_SERVER_ID && inScopeIds.has(String(Number(g.GAME_SERVER_ID)))) {
+        g.EPU_CHECKED = true;
+        g.EPU = null;
+      }
+    });
+    if (gsNumericIds.length > 0) {
+      try {
+        setStatus('Checking events_production_union...', 'loading');
+        const epuData = await runSF(`
+          SELECT
+            app_id::VARCHAR                                        AS APP_ID,
+            COUNT(*)                                               AS ROW_COUNT,
+            COUNT(DISTINCT name)                                   AS DISTINCT_EVENTS,
+            COUNT(DISTINCT device_model)                           AS DISTINCT_DEVICES,
+            SUM(CASE WHEN name = 'Game_Start' THEN 1 ELSE 0 END)  AS GAME_START_COUNT,
+            SUM(CASE WHEN name = 'Game_End'   THEN 1 ELSE 0 END)  AS GAME_END_COUNT
+          FROM TDS_DB.PUBLIC.EVENTS_PRODUCTION_UNION
+          WHERE app_id IN (${gsNumericIds.join(',')})
+            AND CREATED_AT::DATE >= DATEADD(day, -14, CURRENT_DATE)
+          GROUP BY app_id
+        `, 'EPU');
+        const epuMap = {};
+        (epuData.rows || []).forEach(r => epuMap[String(Number(r.APP_ID))] = r);
+        allGames.forEach(g => {
+          if (!g.GAME_SERVER_ID || !inScopeIds.has(String(Number(g.GAME_SERVER_ID)))) return;
+          g.EPU = epuMap[String(Number(g.GAME_SERVER_ID))] || null;
+        });
+      } catch(e) {
+        // EPU failed — EPU_CHECKED stays true so we show an error badge, not "?"
+        allGames.forEach(g => {
+          if (g.GAME_SERVER_ID && inScopeIds.has(String(Number(g.GAME_SERVER_ID)))) {
+            g.EPU_ERROR = e.message || 'EPU query failed';
+          }
+        });
+        console.warn('EPU error:', e);
+      }
+    }
+  }
+
+  const t = new Date().toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' });
+  document.getElementById('last-updated').textContent = `Updated ${t}`;
+  setStatus(`${allGames.length} game${allGames.length !== 1 ? 's' : ''} loaded`, 'ok');
+
+  renderRadar();
+  renderWeek();
+  populateDQSelect();
+}
+
+// ════════════════════════════════════════════════
+// STUDIO FILTER
+// ════════════════════════════════════════════════
+function renderStudioChips(chipsElId, filterRowId) {
+  const studios = [...new Set(allGames.map(g => g.STUDIO_NAME || 'Unknown'))].sort();
+  const chipsEl = document.getElementById(chipsElId);
+  if (!chipsEl) return;
+  chipsEl.innerHTML = studios.map(s => `
+    <button class="studio-chip ${selectedStudios.has(s) ? 'on' : 'off'}"
+      data-studio="${s.replace(/&/g,'&amp;').replace(/"/g,'&quot;')}">${s}</button>
+  `).join('');
+  chipsEl.querySelectorAll('.studio-chip').forEach(btn => {
+    btn.addEventListener('click', () => toggleStudio(btn.dataset.studio));
+  });
+  const row = document.getElementById(filterRowId);
+  if (row) row.style.display = 'flex';
+}
+
+function initStudioFilter() {
+  const studios = [...new Set(allGames.map(g => g.STUDIO_NAME || 'Unknown'))].sort();
+  // Default: all ON except Ludios
+  if (selectedStudios.size === 0) {
+    studios.forEach(s => { if (!s.toLowerCase().includes('ludio')) selectedStudios.add(s); });
+  }
+  renderStudioChips('studio-chips', 'studio-filter');
+  renderStudioChips('week-studio-chips', 'week-studio-filter');
+}
+
+function toggleStudio(name) {
+  if (selectedStudios.has(name)) selectedStudios.delete(name);
+  else selectedStudios.add(name);
+  initStudioFilter();
+  renderRadar();
+  renderWeek();
+}
+
+// ════════════════════════════════════════════════
+// ISSUES PANEL — this week + next week with problems
+// ════════════════════════════════════════════════
+function getGameIssues(g) {
+  const jiraStatus   = getJiraStatus(g.APPLICATION_NAME, g.ANALYTICAL_NAME);
+  const hasJira      = jiraStatus.level === 'pass';
+  const aWarn   = isAdjustWarn(g);
+  const issues  = [];
+
+  // Blocked
+  if (!g.ANALYTICAL_NAME)
+    issues.push({ text: 'No analytical name set', type: 'ip-block' });
+
+  // Data missing
+  if (!g.GAME_SERVER_ID)
+    issues.push({ text: 'Game Server ID not found', type: 'ip-warn' });
+  if (!g.ADJUST_IOS && !aWarn)
+    issues.push({ text: 'Adjust iOS token missing', type: 'ip-warn' });
+  if (!g.ADJUST_ANDROID && !aWarn)
+    issues.push({ text: 'Adjust Android token missing', type: 'ip-warn' });
+  if (aWarn)
+    issues.push({ text: 'iOS and Android Adjust tokens are the same', type: 'ip-warn' });
+  if (!g.BUNDLE_ID)
+    issues.push({ text: 'Bundle ID missing', type: 'ip-warn' });
+
+  // Events production union
+  if (g.EPU_CHECKED && !g.EPU)
+    issues.push({ text: 'No events in the last 14 days', type: 'ip-warn' });
+  if (g.EPU_CHECKED && g.EPU) {
+    const s = epuStatus(g);
+    if (s.level === 'testing')
+      issues.push({ text: 'Events look like internal testing only', type: 'ip-warn' });
+  }
+
+  // Action needed
+  if (jiraStatus.level === 'fail')
+    issues.push({ text: 'Jira tickets not created', type: 'ip-action' });
+  else if (jiraStatus.level === 'warn')
+    issues.push({ text: `Jira incomplete: ${jiraStatus.issues.join('; ')}`, type: 'ip-action' });
+  return issues;
+}
+
+function renderIssuesPanel(visible) {
+  const urgent = visible.filter(g => isThisWeek(g.SL_DATE) || isNextWeek(g.SL_DATE));
+  const withIssues = urgent.map(g => ({ g, issues: getGameIssues(g) })).filter(x => x.issues.length > 0);
+
+  const el = document.getElementById('radar-issues');
+  if (withIssues.length === 0) { el.innerHTML = ''; return; }
+
+  const sections = withIssues.map(({ g, issues }) => {
+    const bullets = issues.map(i => `
+      <li class="issue-bullet ${i.type}">
+        <span class="ib-dot"></span>
+        <span class="ib-text">${i.text}</span>
+      </li>`).join('');
+
+    return `
+      <div class="issue-section">
+        <div class="issue-game-header">
+          <span class="issue-game-name">${g.APPLICATION_NAME}</span>
+          ${whenBadge(g.SL_DATE)}
+          <span style="font-size:11px;color:#6b7280">${fmtDate(g.SL_DATE)}</span>
+        </div>
+        <ul class="issue-bullets">${bullets}</ul>
+      </div>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div class="issues-card">
+      <div class="issues-card-header">
+        <span class="issues-card-title">Needs Attention (${withIssues.length} game${withIssues.length !== 1 ? 's' : ''})</span>
+      </div>
+      ${sections}
+    </div>`;
+}
+
+// ════════════════════════════════════════════════
+// RENDER — GAME RADAR
+// ════════════════════════════════════════════════
+function renderRadar() {
+  initStudioFilter(); // must run first so selectedStudios is populated before filtering
+  const visible = allGames.filter(g => selectedStudios.has(g.STUDIO_NAME || 'Unknown'));
+
+  const upcoming = visible.filter(g => !isPast(g.SL_DATE));
+  const released = visible.filter(g => isPast(g.SL_DATE));
+
+  function buildRows(games) {
+    return games.map(g => {
+      const jiraStatus   = getJiraStatus(g.APPLICATION_NAME, g.ANALYTICAL_NAME);
+      const hasJira      = jiraStatus.level === 'pass';
+      const aWarn        = isAdjustWarn(g);
+      return `<tr>
+        <td>
+          <div class="game-name">${g.APPLICATION_NAME || '—'}</div>
+          <div class="${g.ANALYTICAL_NAME ? 'game-sub' : 'game-no-an'}">${g.ANALYTICAL_NAME || '⚠ No analytical name'}</div>
+        </td>
+        <td style="white-space:nowrap">${g.STUDIO_NAME || '—'}</td>
+        <td style="white-space:nowrap">${whenBadge(g.SL_DATE)}<div style="font-size:11px;color:#6b7280;margin-top:3px">${fmtDate(g.SL_DATE)}</div></td>
+        <td class="center">${ck(g.ANALYTICAL_NAME)}</td>
+        <td class="center">${ck(g.GAME_SERVER_ID)}</td>
+        <td class="center">${ck(g.ADJUST_IOS, aWarn)}</td>
+        <td class="center">${ck(g.ADJUST_ANDROID, aWarn)}</td>
+        <td class="center">${ck(g.BUNDLE_ID)}</td>
+        <td class="center">${epuCell(g)}</td>
+        <td class="center">${jiraBadge(g.APPLICATION_NAME, g.ANALYTICAL_NAME)}</td>
+        <td>${statusBadge(g, hasJira)}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  const tableHeader = `<table>
+      <thead><tr>
+        <th>App Name</th>
+        <th>Studio</th>
+        <th>Soft Launch</th>
+        <th title="Analytical Name">AN</th>
+        <th title="Game Server ID">GS ID</th>
+        <th title="Adjust Token iOS">iOS Adj</th>
+        <th title="Adjust Token Android">And Adj</th>
+        <th title="Bundle ID">Bundle</th>
+        <th title="Events in events_production_union (last 14 days) · Testing = ≤5 device models · Live = >5 devices + ≥5 Game_Start + ≥5 Game_End">Events</th>
+        <th title="Jira AS Story">Jira</th>
+        <th>Status</th>
+      </tr></thead>
+      <tbody>`;
+
+  // ── Upcoming table
+  const thisWeekN = upcoming.filter(g => isThisWeek(g.SL_DATE)).length;
+  const nextWeekN = upcoming.filter(g => isNextWeek(g.SL_DATE)).length;
+  const readyN    = upcoming.filter(g => !getMissing(g).length && !isAdjustWarn(g) && getJiraStatus(g.APPLICATION_NAME, g.ANALYTICAL_NAME).level === 'pass').length;
+  document.getElementById('radar-chips').innerHTML = `
+    <span class="badge b-purple">📅 ${thisWeekN} this week</span>
+    <span class="badge b-blue">🗓 ${nextWeekN} next week</span>
+    <span class="badge b-green">✓ ${readyN} ready</span>
+    <span class="badge b-gray">${upcoming.length} shown</span>`;
+
+  document.getElementById('radar-table').innerHTML = upcoming.length === 0
+    ? '<div class="empty-state">No upcoming games match the current studio filter</div>'
+    : tableHeader + buildRows(upcoming) + `</tbody></table>`;
+
+  // ── Released table
+  const releasedCard = document.getElementById('released-card');
+  if (released.length > 0) {
+    releasedCard.style.display = '';
+    const liveN = released.filter(g => epuStatus(g).level === 'live').length;
+    document.getElementById('released-chips').innerHTML = `
+      <span class="badge b-green">${released.length} released</span>
+      <span class="badge b-green">${liveN} live EPU</span>`;
+    document.getElementById('released-table').innerHTML = tableHeader + buildRows(released) + `</tbody></table>`;
+  } else {
+    releasedCard.style.display = 'none';
+  }
+
+  renderIssuesPanel(visible);
+}
+
+// ════════════════════════════════════════════════
+// RENDER — PHASE 2 (Jira Ticket Creation)
+// Sections: This Week / Following Week / Live EPU
+// ════════════════════════════════════════════════
+function renderWeek() {
+  renderStudioChips('week-studio-chips', 'week-studio-filter');
+
+  const visible = allGames.filter(g => selectedStudios.has(g.STUDIO_NAME || 'Unknown'));
+  const thisWeekGames = visible.filter(g => isThisWeek(g.SL_DATE));
+  const nextWeekGames = visible.filter(g => isNextWeek(g.SL_DATE));
+  // Now Live = all games released in the last 30 days (before this week)
+  const _thirtyAgo = new Date();
+  _thirtyAgo.setUTCDate(_thirtyAgo.getUTCDate() - 30);
+  const _thirtyAgoStr = _thirtyAgo.toISOString().split('T')[0];
+  const { start: _weekStart } = getWeekBounds();
+  const nowLiveGames = visible.filter(g =>
+    g.SL_DATE && g.SL_DATE < _weekStart && g.SL_DATE >= _thirtyAgoStr
+  );
+  // Count ALL games with live EPU (including this/next week) for accurate chip
+  const allLiveEPUCount = visible.filter(g => epuStatus(g).level === 'live').length;
+
+  const allInScope = [...thisWeekGames, ...nextWeekGames, ...nowLiveGames];
+  const totalNeedJira = allInScope.filter(g => getJiraStatus(g.APPLICATION_NAME, g.ANALYTICAL_NAME).level !== 'pass').length;
+
+  // Summary chips
+  const chipsEl = document.getElementById('week-summary-chips');
+  if (chipsEl) {
+    chipsEl.innerHTML = `
+      <span class="badge b-purple">${thisWeekGames.length} this week</span>
+      <span class="badge b-blue">${nextWeekGames.length} following week</span>
+      <span class="badge b-green">${allLiveEPUCount} live EPU</span>
+      <span class="badge b-red">${totalNeedJira} need Jira</span>`;
+  }
+
+  if (allInScope.length === 0) {
+    document.getElementById('week-table').innerHTML = '<div class="empty-state">🎉 No games in scope for Phase 2</div>';
+    return;
+  }
+
+  function renderSection(games, sectionTitle, borderColor) {
+    if (games.length === 0) return '';
+    const rows = games.map(g => {
+      const jiraStatus = getJiraStatus(g.APPLICATION_NAME, g.ANALYTICAL_NAME);
+      const hasJira    = jiraStatus.level === 'pass';
+      const missing    = getMissing(g);
+      const aWarn      = isAdjustWarn(g);
+      const dataIssues = [...missing, ...(aWarn ? ['Adjust tokens identical'] : [])];
+      const epu = epuStatus(g);
+      const epuBadge = epu.level === 'live'    ? '<span class="badge b-green">✓ Live</span>'
+                     : epu.level === 'testing' ? '<span class="badge b-yellow">Testing</span>'
+                     : epu.level === 'none'    ? '<span class="badge b-red">No events</span>'
+                     : '<span class="badge b-gray">—</span>';
+      const allDone = hasJira; // Calendar is auto-synced on refresh — button is Jira-only
+
+      const btnLabel = 'Create Jira →';
+
+      return `<tr${allDone ? ' style="opacity:0.45"' : ''}>
+        <td>
+          <div class="game-name">${g.APPLICATION_NAME}</div>
+          <div class="game-sub">${g.ANALYTICAL_NAME || '—'}</div>
+        </td>
+        <td style="white-space:nowrap">${fmtDate(g.SL_DATE)}</td>
+        <td>${g.STUDIO_NAME || '—'}</td>
+        <td>${epuBadge}</td>
+        <td>${jiraBadge(g.APPLICATION_NAME, g.ANALYTICAL_NAME)}</td>
+        <td>${dataIssues.length === 0
+          ? '<span class="badge b-green">Complete</span>'
+          : dataIssues.slice(0,2).map(i=>`<span class="badge b-red" style="font-size:10px">${i}</span>`).join(' ')}</td>
+        <td data-app="${(g.APPLICATION_NAME||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;')}"
+            data-an="${(g.ANALYTICAL_NAME||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;')}"
+            data-issues="${dataIssues.join('||').replace(/&/g,'&amp;').replace(/"/g,'&quot;')}"
+            data-hasjira="${hasJira}">
+          ${allDone
+            ? '<span style="color:#9ca3af;font-size:12px">Done ✓</span>'
+            : `<button class="btn btn-go week-go-btn" style="font-size:11px;padding:5px 11px">${btnLabel}</button>`}
+        </td>
+      </tr>`;
+    }).join('');
+
+    return `
+      <div style="margin:16px 18px 0; border-radius:8px; border:1px solid ${borderColor}25; overflow:hidden;">
+        <div style="padding:10px 16px; font-size:12px; font-weight:700; color:${borderColor}; background:${borderColor}0d; border-bottom:1px solid ${borderColor}25;">
+          ${sectionTitle}
+        </div>
+        <div class="overflow-x">
+          <table>
+            <thead><tr>
+              <th>App</th><th>Soft Launch</th><th>Studio</th>
+              <th>EPU</th><th>Jira</th><th>Data Gaps</th><th>Action</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      </div>`;
+  }
+
+  const wb  = getWeekBounds();
+  const nwb = getNextWeekBounds();
+  const thisWeekLabel = `This Week (${fmtDateRange(wb.start, wb.end)})`;
+  const nextWeekLabel = `Following Week (${fmtDateRange(nwb.start, nwb.end)})`;
+
+  // Build lookup so createJiraTickets can access full Snowflake data for the description
+  weekGamesMap = {};
+  [...thisWeekGames, ...nextWeekGames, ...nowLiveGames].forEach(g => {
+    weekGamesMap[g.APPLICATION_NAME] = g;
+  });
+
+  const weekTableEl = document.getElementById('week-table');
+  weekTableEl.innerHTML =
+    renderSection(thisWeekGames, thisWeekLabel, '#7c3aed') +
+    renderSection(nextWeekGames, nextWeekLabel, '#1d4ed8') +
+    (nowLiveGames.length > 0 ? renderSection(nowLiveGames, 'Now Live — Released (Last 30 Days)', '#0f766e') : '') +
+    '<div style="height:16px"></div>';
+
+  weekTableEl.querySelectorAll('.week-go-btn').forEach(btn => {
+    const td = btn.closest('td');
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      btn.innerHTML = '<span style="display:inline-flex;align-items:center;gap:5px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" style="animation:spin 0.8s linear infinite"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>Creating...</span>';
+
+      try {
+        const gameData = weekGamesMap[td.dataset.app] || null;
+        const { parentKey, created } = await createJiraTickets(td.dataset.app, gameData);
+        // Show link to parent story
+        const label = created.length > 0
+          ? `${parentKey} ↗ (${created.length} created)`
+          : `${parentKey} ↗ (already complete)`;
+        btn.outerHTML = `<a href="https://tripledotstudios.atlassian.net/browse/${parentKey}" target="_blank"
+          style="display:inline-block;padding:5px 11px;background:#16a34a;color:#fff;border-radius:6px;font-size:11px;font-weight:600;text-decoration:none"
+          >${label}</a>`;
+        // Optimistically mark all tickets as created so badge flips to ✓ immediately
+        const _key = fuzzyGameKey(td.dataset.app);
+        if (!jiraData[_key]) jiraData[_key] = { gameName: td.dataset.app, story: false, storyKey: parentKey, tasks: {} };
+        jiraData[_key].story = true;
+        jiraData[_key].storyKey = parentKey;
+        jiraData[_key].tasks = { etl: true, crashlytics: true, dashboard: true, dds: true };
+        renderWeek();
+        renderRadar();
+      } catch(e) {
+        btn.innerHTML = '✗ Failed — retry';
+        btn.style.background = '#dc2626';
+        btn.style.borderColor = '#dc2626';
+        btn.style.color = '#fff';
+        btn.disabled = false;
+        console.error('Jira creation error:', e);
+      }
+    });
+  });
+}
+
+// ════════════════════════════════════════════════
+// JIRA TICKET CREATION — direct API calls
+// ════════════════════════════════════════════════
+const JIRA_CLOUD      = 'tripledotstudios.atlassian.net';
+const JIRA_EVGENY     = '5e71e87db715180c47c144bd';
+const JIRA_DIZKY      = '712020:a33505f8-0cb2-4094-ae4b-42cb2b754d89';
+const JIRA_SFD        = '2'; // Selected for Development transition ID
+const JIRA_TOOL       = 'mcp__3b48b019-037d-4ad4-897a-13acde16df78__createJiraIssue';
+
+// ── Application Group inference ──────────────────
+function inferAppGroup(name) {
+  const n = (name || '').toLowerCase();
+  if (/\bsort\b/.test(n))    return 'Sort';
+  if (/block/.test(n))       return 'Blocks';
+  if (/card/.test(n))        return 'Cards';
+  if (/tile/.test(n))        return 'Tiles';
+  if (/casino|slot/.test(n)) return 'IAP';
+  return 'Others';
+}
+
+// ── Story description — matches AS-7192 template exactly ─
+function buildStoryDescription(gameData) {
+  if (!gameData) return '';
+
+  // Use ANALYTICAL_NAME for the Application Name field
+  const appName       = (gameData.ANALYTICAL_NAME || gameData.APPLICATION_NAME || '').toLowerCase().replace(/\s+/g, '');
+  const studio        = gameData.STUDIO_NAME      || '—';
+  const gsId          = gameData.GAME_SERVER_ID   || null;
+  const adjustIos     = gameData.ADJUST_IOS       || null;
+  const adjustAndroid = gameData.ADJUST_ANDROID   || null;
+  const bundleAndroid = gameData.BUNDLE_ID_ANDROID || null;
+  const bundleIos     = gameData.BUNDLE_ID_IOS    || null;
+  const sameAdjust    = adjustIos && adjustAndroid && adjustIos === adjustAndroid;
+
+  // Application Group row — ✅ on match, ❌ on others
+  const group  = inferAppGroup(gameData.APPLICATION_NAME);
+  const grpRow = ['Blocks','Cards','Tiles','Casino','IAP','Sort','Others']
+    .map(g => `${g} ${g === group ? '✅' : '❌'}`)
+    .join('    ');
+
+  const gsDisplay     = gsId ? String(gsId) : '❓ TBC';
+  const adjIosDisplay = sameAdjust
+    ? `⚠️ ${adjustIos} (same as Android — needs verification)`
+    : (adjustIos  || '—');
+  const adjAndDisplay = adjustAndroid || '—';
+
+  // Crashlytics platforms — check what's in PLATFORMS field
+  const platformsRaw = (gameData.PLATFORMS || '').toLowerCase();
+  const hasIos     = /ios/.test(platformsRaw);
+  const hasAndroid = /android/.test(platformsRaw);
+  const platformDisplay = `iOS ${hasIos ? '✅' : '❌'}  Android ${hasAndroid ? '✅' : '❌'}`;
+
+  return [
+    'When a new app is needed within TDS ETLs please clone this ticket and ensure the following requirements are detailed.',
+    '',
+    '**How to use this template**',
+    '',
+    'Review check or cross icon accordingly for your request and send to @Annika Sikdar for prioritisation.',
+    '',
+    '| **Requirements of New App - Naming and Identifier** | **Enter App details here** |',
+    '| --- | --- |',
+    `| Application Name | ${appName} |`,
+    `| Team | ${studio} |`,
+    '| Company | tripledot |',
+    `| Application Group | ${grpRow} |`,
+    `| Game Server ID _(i.e. 26)_ | ${gsDisplay} |`,
+    `| Adjust Token iOS _(i.e. eqitgeoal534)_ | ${adjIosDisplay} |`,
+    `| Adjust Token Android _(i.e. mvlroy4p8tts)_ | ${adjAndDisplay} |`,
+    `| Bundle ID Android | ${bundleAndroid || '—'} |`,
+    `| Bundle ID iOS | ${bundleIos || '—'} |`,
+    '',
+    '**ETL Section**',
+    '',
+    '| **ETL Details** | **Check Y/N** |',
+    '| --- | --- |',
+    '| internal_pk_apps (always) | ✅ |',
+    '| applovin_apps | ✅ |',
+    '| appsflyer_apps | ✅ |',
+    '| fairbid_apps | ❌ |',
+    '| ironsource_apps | ❌ |',
+    '| segments_apps | ✅ |',
+    '| release_dashboard_apps | ✅ |',
+    '| realtime_views_apps (e_progression_events, e_economy) | ✅ |',
+    '| level_attempts_apps | ✅ |',
+    '| level_variety_apps | ✅ |',
+    '| ad_quality_apps | ✅ |',
+    '| user_segmentation_apps | ✅ |',
+    '| client_experiments_apps | ❌ |',
+    '| power_calculator_apps | ✅ |',
+    '| powerup_apps | ✅ |',
+    '| choose one of according to the source: gameserver_apps | gameserver_apps ✅ |',
+    '',
+    '**Crashlytics**',
+    '',
+    '| **Crashlytics pipeline request** | **Check Y/N** |',
+    '| --- | --- |',
+    '| app | ✅ |',
+    `| Platform | ${platformDisplay} |`,
+    '',
+    '**API List**',
+    '',
+    '| **Request to add into the config files for:** | |',
+    '| --- | --- |',
+    '| SKAD | yes |',
+    '| Google Ads Report | |',
+    '| Google Ads Asset Report | |',
+    '| Apptweak | - |',
+    '| Fairbid | - |',
+    '',
+    '**Powerup Items** (if powerup_apps ✅)',
+    '',
+    '| source_item_type_transaction | item_type_transaction | app_id | app_name |',
+    '| --- | --- | --- | --- |',
+    '| - | - | - | - |',
+    '',
+    '**DS&I Airflow Jobs**',
+    '',
+    '| Specify the DAG you would like the new game to be added to ([full list here](https://airflow-prd.de.tripledotapi.com/home?tags=DSI)): |',
+    '| --- |',
+    '| f_live_telemetry |',
+    '| f_qa_automation |',
+    '| f_onboarding |',
+    '| f_first_day_retention |',
+  ].join('\n');
+}
+
+// Extract Jira issue key from createJiraIssue response —
+// structuredContent.key works for some tools; others only populate content[0].text
+function extractJiraKey(res) {
+  if (res?.isError) {
+    let msg = 'Jira API error';
+    try { msg = JSON.parse(res.content?.[0]?.text || '{}').message || msg; } catch(_) {}
+    throw new Error(msg);
+  }
+  // Try structuredContent.key first
+  if (res?.structuredContent?.key) return res.structuredContent.key;
+  // Fall back to parsing content[0].text
+  try {
+    const parsed = JSON.parse(res?.content?.[0]?.text || '{}');
+    if (parsed.key) return parsed.key;
+  } catch(_) {}
+  // Last resort: regex match "AS-1234" or "DS-1234" in raw text
+  const raw = res?.content?.[0]?.text || '';
+  const m = raw.match(/"key"\s*:\s*"([A-Z]+-\d+)"/);
+  if (m) return m[1];
+  return null;
+}
+
+async function createJiraTickets(gameName, gameData = null) {
+  const mkIssue = (args) => window.cowork.callMcpTool(JIRA_TOOL, args);
+  const mkTask  = (summary, assignee) => mkIssue({
+    cloudId: JIRA_CLOUD,
+    projectKey: 'AS',
+    issueTypeName: 'Task',
+    summary,
+    assignee_account_id: assignee,
+  });
+  const linkToStory = (taskKey, storyKey) => window.cowork.callMcpTool(
+    'mcp__3b48b019-037d-4ad4-897a-13acde16df78__createIssueLink',
+    { cloudId: JIRA_CLOUD, inwardIssue: storyKey, outwardIssue: taskKey, type: 'Parent-Child' }
+  );
+
+  const gameKey = fuzzyGameKey(gameName);
+  const existing = jiraData[gameKey] || { story: false, storyKey: null, tasks: {} };
+  const created = [];
+
+  // ── Step 1: AS Story ────────────────────────────
+  let parentKey = existing.storyKey || null;
+  const desc = buildStoryDescription(gameData);
+
+  if (!existing.story) {
+    // Create new Story with full description
+    const storyArgs = {
+      cloudId: JIRA_CLOUD,
+      projectKey: 'AS',
+      issueTypeName: 'Story',
+      summary: `${gameName} - Add New App to ETLs`,
+      assignee_account_id: JIRA_EVGENY,
+    };
+    if (desc) storyArgs.description = desc;
+    const res = await mkIssue(storyArgs);
+    parentKey = extractJiraKey(res);
+    if (!parentKey) throw new Error('Story created but no key returned');
+    created.push('story');
+  } else {
+    // Story exists — resolve parentKey if not cached, then rewrite description
+    if (!parentKey) {
+      const searchRes = await window.cowork.callMcpTool(
+        'mcp__3b48b019-037d-4ad4-897a-13acde16df78__searchJiraIssuesUsingJql',
+        { cloudId: JIRA_CLOUD,
+          jql: `project = "AS" AND issuetype = Story AND summary ~ "${gameName}" AND created >= -180d ORDER BY created DESC`,
+          fields: ['summary', 'issuetype'], maxResults: 5 }
+      );
+      const parsed = parseMcp(searchRes);
+      const issues = Array.isArray(parsed.issues) ? parsed.issues : (parsed.issues?.nodes || []);
+      const storyIssue = issues.find(i =>
+        (i.fields?.issuetype?.name || '').toLowerCase() === 'story' &&
+        /\betl/i.test(i.fields?.summary || '')
+      );
+      if (!storyIssue) throw new Error(`Could not find existing AS story for ${gameName}`);
+      parentKey = storyIssue.key;
+    }
+    // Rewrite description with latest Snowflake data
+    if (desc && parentKey) {
+      await window.cowork.callMcpTool(
+        'mcp__3b48b019-037d-4ad4-897a-13acde16df78__editJiraIssue',
+        { cloudId: JIRA_CLOUD, issueIdOrKey: parentKey, description: desc }
+      );
+      created.push('description updated');
+    }
+  }
+
+  // ── Step 2: AS Tasks (only create missing ones) ──
+  const taskDefs = [
+    { key: 'etl',         summary: `${gameName} - Add New App to ETLs`,                      assignee: JIRA_EVGENY },
+    { key: 'dds',         summary: `${gameName} - Add New App to dds.application`,            assignee: JIRA_EVGENY },
+    { key: 'crashlytics', summary: `${gameName} - Add to Crashlytics Pipeline`,               assignee: JIRA_EVGENY },
+    { key: 'dashboard',   summary: `${gameName} - Review and Add to BI-Supported Dashboard`,  assignee: JIRA_DIZKY  },
+  ];
+
+  for (const t of taskDefs) {
+    if (existing.tasks?.[t.key]) continue; // already exists
+    const res = await mkTask(t.summary, t.assignee);
+    const taskKey = extractJiraKey(res); // robust key extraction
+    if (!taskKey) throw new Error(`Task created but key not found in response for: ${t.summary}`);
+    await linkToStory(taskKey, parentKey);
+    created.push(t.key);
+  }
+
+  return { parentKey, created };
+}
+
+// ════════════════════════════════════════════════
+// DQ CHECKS
+// ════════════════════════════════════════════════
+// ════════════════════════════════════════════════
+// DQ HELPERS — global so filterDQPlatform can access them
+// ════════════════════════════════════════════════
+let dqCheckData = {};
+let _dqCardId   = 0;
+
+const EPU_PRIORITY_EVENTS = [
+  'App_First_Open','App_Start_Time','App_Start_Time_First','App_Update',
+  'LAT','NOT_LAT','Init_Call_Completed','Session_Start','Session_Resume','Session_End',
+  'IAP_Make_Purchase','DeepLink_Opened','Notice_Handled','GDPR_Consent','GDPR_View',
+  'GP_Install_Referrer','PackageInfo_Android','User_IDs','DeviceInfo','InstallSourceInfo',
+  'GP_Init','Remote_Config_Invalid','Remote_Config_Save_Failed','Remote_Config_Load_Failed',
+  'Remote_Config_Saved','Game_End','Game_Start','Game_Suspend','Game_Resume',
+  'Level_Progression','Player_Progression','Powerup_Transaction','Currency_Transaction',
+  'Time_Limited_Item_Transaction','Reward_Received','Screen_Shown','Screen_Interaction',
+  'User_Funnel','LiveOpsEvent_Client_ValidationFailed'
+];
+
+function fmtVal(v) {
+  if (v === null || v === undefined || v === '') return '—';
+  if (typeof v === 'string') {
+    if (v.match(/^\d{4}-\d{2}-\d{2}/)) return v.substring(0, 10);
+    const n = Number(v);
+    if (isNaN(n)) return v;
+    if (!v.includes('.')) return n.toLocaleString();
+    return n.toFixed(2);
+  }
+  const n = Number(v);
+  if (isNaN(n)) return String(v);
+  if (Number.isInteger(n)) return n.toLocaleString();
+  return n.toFixed(2);
+}
+
+function renderFlags(rows, skipCols) {
+  if (!rows || rows.length === 0) return '';
+  const upper = (skipCols || []).map(c => c.toUpperCase());
+  const metricCols = Object.keys(rows[0] || {}).filter(k => !upper.includes(k.toUpperCase()));
+  const flags = [];
+  for (const col of metricCols) {
+    if (flags.length >= 5) break;
+    const allEmpty = rows.every(r => {
+      const v = r[col];
+      return v === null || v === undefined || v === '' || v === '0' || Number(v) === 0;
+    });
+    if (allEmpty) flags.push(col);
+  }
+  if (flags.length === 0) return '';
+  return `<div class="dq-flags-inner">` +
+    flags.map(f => `<span class="dq-flag">No data: ${f.toLowerCase().replace(/_/g,' ')}</span>`).join('') +
+    `</div>`;
+}
+
+function refreshAllCards(platform) {
+  Object.entries(dqCheckData).forEach(([id, data]) => {
+    let rows = data.rows;
+    const hasPlatformCol = rows.some(r => r.PLATFORM !== undefined);
+    if (platform && platform !== 'all' && hasPlatformCol) {
+      rows = rows.filter(r => (r.PLATFORM || '').toLowerCase() === platform);
+    }
+    // Refresh flags
+    const flagsEl = document.getElementById('dqflags_' + id);
+    if (flagsEl) flagsEl.innerHTML = renderFlags(rows, data.skipCols);
+    // Refresh summaries
+    if (data.computeSummaries) {
+      const sumsEl = document.getElementById('dqsums_' + id);
+      if (sumsEl) {
+        const sums = data.computeSummaries(rows);
+        sumsEl.innerHTML = sums.map(s =>
+          `<span class="dq-summary${s.warn?' warn':s.bad?' bad':''}">${s.text}</span>`
+        ).join('');
+      }
+    }
+  });
+}
+
+function filterDQPlatform(p, btn) {
+  document.querySelectorAll('.pf-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  document.querySelectorAll('#dq-results tr[data-platform]').forEach(row => {
+    row.style.display = (p === 'all' || row.dataset.platform === p) ? '' : 'none';
+  });
+  refreshAllCards(p);
+}
+
+function populateDQSelect() {
+  const sel = document.getElementById('dq-game');
+  sel.innerHTML = '<option value="">Select a game...</option>';
+
+  const dqThirtyAgo = new Date();
+  dqThirtyAgo.setUTCDate(dqThirtyAgo.getUTCDate() - 30);
+  const dqThirtyAgoStr = dqThirtyAgo.toISOString().split('T')[0];
+  const dqWeekStart = getWeekBounds().start;
+
+  const upcoming = allGames.filter(g => g.ANALYTICAL_NAME && (!g.SL_DATE || g.SL_DATE >= dqWeekStart));
+  const released = allGames.filter(g => g.ANALYTICAL_NAME && g.SL_DATE && g.SL_DATE < dqWeekStart && g.SL_DATE >= dqThirtyAgoStr);
+
+  function addGroup(label, games) {
+    if (games.length === 0) return;
+    const grp = document.createElement('optgroup');
+    grp.label = label;
+    games.forEach(g => {
+      const o = document.createElement('option');
+      o.value       = g.ANALYTICAL_NAME;
+      o.textContent = `${g.APPLICATION_NAME}  (${g.ANALYTICAL_NAME})`;
+      grp.appendChild(o);
+    });
+    sel.appendChild(grp);
+  }
+
+  addGroup('Upcoming', upcoming);
+  addGroup('Released — Last 30 Days', released);
+}
+
+async function runDQ() {
+  const analyticalName = document.getElementById('dq-game').value;
+  const days = parseInt(document.getElementById('dq-days').value);
+  if (!analyticalName) { alert('Please select a game.'); return; }
+
+  const el = document.getElementById('dq-results');
+  el.innerHTML = '<div class="loading-state"><div class="spinner"></div> Running all checks...</div>';
+  dqCheckData = {};
+  _dqCardId   = 0;
+
+  // ── Resolve Game Server ID ───────────────────────────────────────────────
+  let gsId = (allGames.find(g => g.ANALYTICAL_NAME === analyticalName) || {}).GAME_SERVER_ID || null;
+  if (!gsId) {
+    try {
+      const r = await runSF(`
+        SELECT COALESCE(GS_APP_ID::VARCHAR, ZM_GS_APP_ID::VARCHAR,
+                        LDS_GS_APP_ID::VARCHAR, TT_GS_APP_ID::VARCHAR) AS GS_ID
+        FROM TDS_DB.RAW.TDS_APP_IDS
+        WHERE PUBLIC_ID = (SELECT PUBLIC_ID FROM TDS_DB.RAW.AS_APPLICATIONS
+                           WHERE ANALYTICAL_NAME = '${analyticalName}' LIMIT 1)
+      `, 'GS ID');
+      gsId = (r.rows || [])[0]?.GS_ID || null;
+    } catch(e) {}
+  }
+
+  // Helper: render a small results table (uses global fmtVal)
+  function mkTable(rows, cols) {
+    if (!rows || rows.length === 0) return '<p style="color:#9ca3af;font-size:12px;padding:8px 14px">No rows returned.</p>';
+    const hdr = cols.map(c => `<th>${c.label}</th>`).join('');
+    const body = rows.map(r => {
+      const plat = (r.PLATFORM || '').toLowerCase();
+      const attr = plat ? ` data-platform="${plat}"` : '';
+      return `<tr${attr}>${cols.map(c => `<td>${fmtVal(r[c.key])}</td>`).join('')}</tr>`;
+    }).join('');
+    return `<table><thead><tr>${hdr}</tr></thead><tbody>${body}</tbody></table>`;
+  }
+
+  // Helper: build a check card (checkData = {rows, skipCols, computeSummaries?} for flags + dynamic summaries)
+  function mkCard(title, badge, summaries, tableHtml, checkData) {
+    const id = 'dqchk_' + (_dqCardId++);
+    if (checkData) dqCheckData[id] = checkData;
+    const sHtml = summaries.map(s =>
+      `<span class="dq-summary${s.warn?' warn':s.bad?' bad':''}">${s.text}</span>`
+    ).join('');
+    const flagsHtml = checkData ? renderFlags(checkData.rows, checkData.skipCols) : '';
+    return `
+      <div class="dq-check" data-check-id="${id}">
+        <div class="dq-check-header">
+          <span class="dq-check-title">${title}</span>${badge}
+        </div>
+        <div class="dq-summaries" id="dqsums_${id}">${sHtml}</div>
+        <div class="dq-flags" id="dqflags_${id}">${flagsHtml}</div>
+        <div class="dq-table-wrap">${tableHtml}</div>
+      </div>`;
+  }
+
+  function passFail(ok) {
+    return ok ? '<span class="badge b-green">✓ Pass</span>' : '<span class="badge b-red">✗ Fail</span>';
+  }
+
+  let html = '';
+
+  // ════════════════════════════════════════════════
+  // TIER 1 — Presence & Consistency
+  // ════════════════════════════════════════════════
+  html += `<div class="tier-header">🔴 Tier 1 — Presence &amp; Consistency</div>`;
+
+  // 1. EPU
+  try {
+    const epuData = await runSF(`
+      WITH total_users AS (
+        SELECT PLATFORM, COUNT(DISTINCT user_id) AS TOTAL_DISTINCT_USERS
+        FROM TDS_DB.PUBLIC.EVENTS_PRODUCTION_UNION
+        WHERE APP_ID = ${Number(gsId)}
+          AND DATE(CREATED_AT) BETWEEN DATEADD('day',-${days},CURRENT_DATE) AND DATEADD('day',-1,CURRENT_DATE)
+        GROUP BY PLATFORM
+      ),
+      per_event AS (
+        SELECT PLATFORM, NAME AS EVENT_NAME,
+          COUNT(*)                  AS NUM_EVENTS,
+          COUNT(DISTINCT user_id)   AS DISTINCT_USERS
+        FROM TDS_DB.PUBLIC.EVENTS_PRODUCTION_UNION
+        WHERE APP_ID = ${Number(gsId)}
+          AND DATE(CREATED_AT) BETWEEN DATEADD('day',-${days},CURRENT_DATE) AND DATEADD('day',-1,CURRENT_DATE)
+        GROUP BY PLATFORM, NAME
+      )
+      SELECT p.PLATFORM, p.EVENT_NAME, p.NUM_EVENTS, p.DISTINCT_USERS,
+        t.TOTAL_DISTINCT_USERS,
+        ROUND(p.DISTINCT_USERS * 100.0 / NULLIF(t.TOTAL_DISTINCT_USERS,0), 1) AS PCT_USERS
+      FROM per_event p
+      JOIN total_users t ON p.PLATFORM = t.PLATFORM
+      ORDER BY p.DISTINCT_USERS DESC
+    `, 'EPU');
+    let rows = epuData.rows || [];
+    // Sort by EPU priority list, then alphabetically for the rest
+    const priMap = {};
+    EPU_PRIORITY_EVENTS.forEach((e, i) => { priMap[e.toLowerCase()] = i; });
+    rows.sort((a, b) => {
+      const ai = priMap[(a.EVENT_NAME||'').toLowerCase()];
+      const bi = priMap[(b.EVENT_NAME||'').toLowerCase()];
+      if (ai === undefined && bi === undefined) return (a.EVENT_NAME||'').localeCompare(b.EVENT_NAME||'');
+      if (ai === undefined) return 1;
+      if (bi === undefined) return -1;
+      if (ai !== bi) return ai - bi;
+      return (a.PLATFORM||'').localeCompare(b.PLATFORM||'');
+    });
+    const total = rows.reduce((s, r) => s + parseInt(r.NUM_EVENTS || 0), 0);
+    const platforms = [...new Set(rows.map(r => r.PLATFORM))];
+    const top1 = [...rows].sort((a,b) => parseInt(b.DISTINCT_USERS||0) - parseInt(a.DISTINCT_USERS||0))[0];
+    const badge = rows.length > 0 ? '<span class="badge b-green">✓ Events found</span>' : '<span class="badge b-red">✗ No events</span>';
+    const summaries = [
+      { text: `Total events: ${total.toLocaleString()}` },
+      { text: `Platforms firing: ${platforms.join(', ') || '—'}` },
+      { text: top1 ? `Top event by users: ${top1.EVENT_NAME} (${top1.PCT_USERS}% of users)` : 'No events fired', bad: !top1 }
+    ];
+    html += mkCard('tds_db.public.events_production_union', badge, summaries,
+      mkTable(rows, [
+        {key:'PLATFORM',label:'Platform'},
+        {key:'EVENT_NAME',label:'Event Name'},
+        {key:'NUM_EVENTS',label:'Total Events'},
+        {key:'DISTINCT_USERS',label:'Distinct Users'},
+        {key:'TOTAL_DISTINCT_USERS',label:'Total Users'},
+        {key:'PCT_USERS',label:'% Users'}
+      ]),
+      { rows, skipCols: ['PLATFORM','EVENT_NAME','TOTAL_DISTINCT_USERS'] });
+  } catch(e) {
+    html += mkCard('tds_db.public.events_production_union', '<span class="badge b-red">Error</span>',
+      [{text: e.message, bad:true}], '');
+  }
+
+  // 2. DDS.APPLICATION
+  try {
+    const ddsData = await runSF(`
+      SELECT dds.APPLICATION_NAME AS dds_app, dds.TEAM AS dds_team, dds.STUDIO AS dds_studio,
+        app.ANALYTICAL_NAME AS as_app, t.NAME AS as_team, s.NAME AS as_studio,
+        CASE WHEN dds.APPLICATION_NAME = app.ANALYTICAL_NAME THEN '✓' ELSE '✗' END AS check_app,
+        CASE WHEN dds.TEAM = t.NAME THEN '✓' ELSE '✗' END AS check_team,
+        CASE WHEN LOWER(dds.STUDIO) = LOWER(s.NAME) THEN '✓' ELSE '✗' END AS check_studio
+      FROM TDS_DB.DDS.APPLICATION dds
+      LEFT JOIN TDS_DB.RAW.AS_APPLICATIONS app ON dds.APPLICATION_NAME = app.ANALYTICAL_NAME
+      LEFT JOIN TDS_DB.RAW.AS_TEAMS t ON app.TEAM_ID = t.ID
+      LEFT JOIN TDS_DB.RAW.AS_STUDIOS s ON t.STUDIO_ID = s.ID
+      WHERE dds.APPLICATION_NAME = '${analyticalName}'
+    `, 'DDS APPLICATION');
+    const rows = ddsData.rows || [];
+    const r0 = rows[0] || {};
+    const allPass = r0.CHECK_APP === '✓' && r0.CHECK_TEAM === '✓' && r0.CHECK_STUDIO === '✓';
+    const badge = rows.length === 0 ? '<span class="badge b-red">✗ Not found</span>' : passFail(allPass);
+    const summaries = rows.length === 0
+      ? [{text:'App not found in DDS.APPLICATION', bad:true}]
+      : allPass
+        ? [{ text: 'app, team, studio — all match' }]
+        : [
+            ...(r0.CHECK_APP !== '✓' ? [{ text: `app mismatch: DDS "${r0.DDS_APP}" / AS "${r0.AS_APP}"`, bad:true }] : []),
+            ...(r0.CHECK_TEAM !== '✓' ? [{ text: `team mismatch: DDS "${r0.DDS_TEAM}" / AS "${r0.AS_TEAM}"`, bad:true }] : []),
+            ...(r0.CHECK_STUDIO !== '✓' ? [{ text: `studio mismatch: DDS "${r0.DDS_STUDIO}" / AS "${r0.AS_STUDIO}"`, bad:true }] : [])
+          ];
+    html += mkCard('tds_db.dds.application', badge, summaries,
+      mkTable(rows, [
+        {key:'DDS_APP',label:'dds_app'},{key:'DDS_TEAM',label:'dds_team'},{key:'DDS_STUDIO',label:'dds_studio'},
+        {key:'AS_APP',label:'as_app'},{key:'AS_TEAM',label:'as_team'},{key:'AS_STUDIO',label:'as_studio'},
+        {key:'CHECK_APP',label:'check_app'},{key:'CHECK_TEAM',label:'check_team'},{key:'CHECK_STUDIO',label:'check_studio'}
+      ]));
+  } catch(e) {
+    html += mkCard('tds_db.dds.application', '<span class="badge b-red">Error</span>', [{text:e.message, bad:true}], '');
+  }
+
+  // 3. BI_APPLICATION
+  try {
+    const biData = await runSF(`
+      SELECT bi.APPLICATION_NAME AS bi_app, bi.TEAM AS bi_team, bi.STUDIO AS bi_studio,
+        app.ANALYTICAL_NAME AS as_app, t.NAME AS as_team, s.NAME AS as_studio,
+        CASE WHEN bi.APPLICATION_NAME = app.ANALYTICAL_NAME THEN '✓' ELSE '✗' END AS check_app,
+        CASE WHEN bi.TEAM = t.NAME THEN '✓' ELSE '✗' END AS check_team,
+        CASE WHEN LOWER(bi.STUDIO) = LOWER(s.NAME) THEN '✓' ELSE '✗' END AS check_studio
+      FROM TDS_DB.PUBLIC.BI_APPLICATION bi
+      LEFT JOIN TDS_DB.RAW.AS_APPLICATIONS app ON bi.APPLICATION_NAME = app.ANALYTICAL_NAME
+      LEFT JOIN TDS_DB.RAW.AS_TEAMS t ON app.TEAM_ID = t.ID
+      LEFT JOIN TDS_DB.RAW.AS_STUDIOS s ON t.STUDIO_ID = s.ID
+      WHERE bi.APPLICATION_NAME = '${analyticalName}'
+    `, 'BI_APPLICATION');
+    const rows = biData.rows || [];
+    const r0 = rows[0] || {};
+    const allPass = r0.CHECK_APP === '✓' && r0.CHECK_TEAM === '✓' && r0.CHECK_STUDIO === '✓';
+    const badge = rows.length === 0 ? '<span class="badge b-red">✗ Not found</span>' : passFail(allPass);
+    const summaries = rows.length === 0
+      ? [{text:'App not found in BI_APPLICATION', bad:true}]
+      : allPass
+        ? [{ text: 'app, team, studio — all match' }]
+        : [
+            ...(r0.CHECK_APP !== '✓' ? [{ text: `app mismatch: BI "${r0.BI_APP}" / AS "${r0.AS_APP}"`, bad:true }] : []),
+            ...(r0.CHECK_TEAM !== '✓' ? [{ text: `team mismatch: BI "${r0.BI_TEAM}" / AS "${r0.AS_TEAM}"`, bad:true }] : []),
+            ...(r0.CHECK_STUDIO !== '✓' ? [{ text: `studio mismatch: BI "${r0.BI_STUDIO}" / AS "${r0.AS_STUDIO}"`, bad:true }] : [])
+          ];
+    html += mkCard('tds_db.public.bi_application', badge, summaries,
+      mkTable(rows, [
+        {key:'BI_APP',label:'bi_app'},{key:'BI_TEAM',label:'bi_team'},{key:'BI_STUDIO',label:'bi_studio'},
+        {key:'AS_APP',label:'as_app'},{key:'AS_TEAM',label:'as_team'},{key:'AS_STUDIO',label:'as_studio'},
+        {key:'CHECK_APP',label:'check_app'},{key:'CHECK_TEAM',label:'check_team'},{key:'CHECK_STUDIO',label:'check_studio'}
+      ]));
+  } catch(e) {
+    html += mkCard('tds_db.public.bi_application', '<span class="badge b-red">Error</span>', [{text:e.message, bad:true}], '');
+  }
+
+  // 4. APP_NAME_MAPPING_GS
+  try {
+    const gsMapData = await runSF(`
+      SELECT gs.ID AS gs_id, gs.NAME AS gs_name, gs.APP_GROUP AS gs_app_group,
+        ids.ANALYTICAL_NAME AS tds_analytical_name,
+        ids.GS_APP_ID::VARCHAR AS tds_gs_app_id,
+        ids.ZM_GS_APP_ID::VARCHAR AS tds_zm_gs_app_id,
+        ids.LDS_GS_APP_ID::VARCHAR AS tds_lds_gs_app_id,
+        ids.TT_GS_APP_ID::VARCHAR AS tds_tt_gs_app_id,
+        CASE WHEN gs.ID::VARCHAR IN (
+          COALESCE(ids.GS_APP_ID::VARCHAR,''), COALESCE(ids.ZM_GS_APP_ID::VARCHAR,''),
+          COALESCE(ids.LDS_GS_APP_ID::VARCHAR,''), COALESCE(ids.TT_GS_APP_ID::VARCHAR,'')
+        ) THEN '✓' ELSE '✗' END AS check_id,
+        CASE WHEN gs.NAME = ids.ANALYTICAL_NAME THEN '✓' ELSE '✗' END AS check_name
+      FROM TDS_DB.PUBLIC.APP_NAME_MAPPING_GS gs
+      LEFT JOIN TDS_DB.RAW.TDS_APP_IDS ids ON gs.ID::VARCHAR IN (
+        COALESCE(ids.GS_APP_ID::VARCHAR,''), COALESCE(ids.ZM_GS_APP_ID::VARCHAR,''),
+        COALESCE(ids.LDS_GS_APP_ID::VARCHAR,''), COALESCE(ids.TT_GS_APP_ID::VARCHAR,'')
+      )
+      WHERE gs.NAME ILIKE '%${analyticalName}%'
+    `, 'APP_NAME_MAPPING_GS');
+    const rows = gsMapData.rows || [];
+    const r0 = rows[0] || {};
+    const badge = rows.length === 0 ? '<span class="badge b-yellow">⚠ Not found</span>' : '<span class="badge b-green">✓ Pass</span>';
+    const summaries = rows.length === 0
+      ? [{text:'App not found in APP_NAME_MAPPING_GS — may not be onboarded to Game Server yet', warn:true}]
+      : [
+          { text: `GS ID: ${r0.GS_ID} | App Group: ${r0.GS_APP_GROUP || '—'}` },
+          { text: `ID linked in TDS_APP_IDS: ${r0.CHECK_ID === '✓' ? 'Yes' : 'No'}`, warn: r0.CHECK_ID !== '✓' },
+          { text: `Name match (gs.name = analytical_name): ${r0.CHECK_NAME === '✓' ? 'Yes' : `No — GS "${r0.GS_NAME}" / TDS "${r0.TDS_ANALYTICAL_NAME}"`}`, warn: r0.CHECK_NAME !== '✓' }
+        ];
+    html += mkCard('tds_db.public.app_name_mapping_gs', badge, summaries,
+      mkTable(rows, [
+        {key:'GS_ID',label:'gs_id'},{key:'GS_NAME',label:'gs_name'},{key:'GS_APP_GROUP',label:'gs_app_group'},
+        {key:'TDS_ANALYTICAL_NAME',label:'tds_analytical_name'},
+        {key:'TDS_GS_APP_ID',label:'tds_gs_app_id'},{key:'TDS_ZM_GS_APP_ID',label:'tds_zm_gs_app_id'},
+        {key:'TDS_LDS_GS_APP_ID',label:'tds_lds_gs_app_id'},{key:'TDS_TT_GS_APP_ID',label:'tds_tt_gs_app_id'},
+        {key:'CHECK_ID',label:'check_id'},{key:'CHECK_NAME',label:'check_name'}
+      ]));
+  } catch(e) {
+    html += mkCard('tds_db.public.app_name_mapping_gs', '<span class="badge b-red">Error</span>', [{text:e.message, bad:true}], '');
+  }
+
+  // ════════════════════════════════════════════════
+  // TIER 2 — Metrics
+  // ════════════════════════════════════════════════
+  html += `<div class="tier-header">🟡 Tier 2 — Metrics</div>`;
+
+  // 5. activity_summary_report_new
+  try {
+    const asnData = await runSF(`
+      SELECT DATE, PLATFORM
+      ,COUNT(DISTINCT COUNTRY)        AS distinct_country
+      ,COUNT(DISTINCT PLACEMENT_TYPE) AS distinct_placement_type
+      ,COUNT(DISTINCT CONNECTION)     AS distinct_connection
+      ,COUNT(DISTINCT MEDIA_SOURCE)   AS distinct_media_source
+      ,SUM(AD_REVENUE)                AS sum_revenue
+      ,SUM(IAP_REVENUE)               AS sum_iap_revenue
+      ,SUM(IMPRESSIONS)               AS sum_impression
+      ,SUM(REQUESTS)                  AS sum_request
+      ,SUM(CLICKS)                    AS sum_clicks
+      ,SUM(SPENT)                     AS sum_spent
+      ,AVG(DAU_AVG)                   AS dau_avg
+      ,AVG(SESSIONS_AVG)              AS sessions_avg
+      ,AVG(INSTALLS_AVG)              AS installs_avg
+      FROM TDS_DB.PUBLIC.ACTIVITY_SUMMARY_REPORT_NEW
+      WHERE APP ILIKE '%${analyticalName}%'
+        AND DATE BETWEEN DATEADD('day',-${days},CURRENT_DATE) AND DATEADD('day',-1,CURRENT_DATE)
+      GROUP BY 1,2 ORDER BY 1,2
+    `, 'activity_summary_report_new');
+    const rows = asnData.rows || [];
+    const badge = rows.length > 0 ? '<span class="badge b-green">✓ Data found</span>' : '<span class="badge b-red">✗ No data</span>';
+    const computeSummaries_asn = (fRows) => {
+      const rev  = fRows.reduce((s,r) => s + (parseFloat(r.SUM_REVENUE)||0), 0);
+      const latest = fRows.length ? fRows[fRows.length-1].DATE?.split('T')[0] : null;
+      const hasIAP = fRows.some(r => parseFloat(r.SUM_IAP_REVENUE) > 0);
+      return [
+        { text: `Total ad revenue (L${days}D): $${rev.toFixed(2)}`, bad: rev === 0 },
+        { text: `IAP revenue: ${hasIAP ? '✓ Flowing' : '✗ No IAP data'}`, bad: !hasIAP, warn: !hasIAP },
+        { text: latest ? `Latest data: ${fmtDate(latest)}` : 'No data found', bad: !latest }
+      ];
+    };
+    html += mkCard('tds_db.public.activity_summary_report_new', badge, computeSummaries_asn(rows),
+      mkTable(rows, [
+        {key:'DATE',label:'Date'},{key:'PLATFORM',label:'Platform'},
+        {key:'DISTINCT_COUNTRY',label:'Countries'},
+        {key:'DISTINCT_PLACEMENT_TYPE',label:'Placement Types'},
+        {key:'DISTINCT_CONNECTION',label:'Connections'},
+        {key:'DISTINCT_MEDIA_SOURCE',label:'Media Sources'},
+        {key:'DAU_AVG',label:'DAU Avg'},{key:'SESSIONS_AVG',label:'Sessions Avg'},{key:'INSTALLS_AVG',label:'Installs Avg'},
+        {key:'SUM_REVENUE',label:'Ad Revenue'},{key:'SUM_IAP_REVENUE',label:'IAP Revenue'},
+        {key:'SUM_IMPRESSION',label:'Impressions'},{key:'SUM_REQUEST',label:'Requests'},
+        {key:'SUM_CLICKS',label:'Clicks'},{key:'SUM_SPENT',label:'Spent'}
+      ]),
+      { rows, skipCols: ['DATE','PLATFORM'], computeSummaries: computeSummaries_asn });
+  } catch(e) {
+    html += mkCard('tds_db.public.activity_summary_report_new', '<span class="badge b-red">Error</span>', [{text:e.message, bad:true}], '');
+  }
+
+  // 6. f_user_activity
+  try {
+    const fuaData = await runSF(`
+      WITH base AS (
+        SELECT DT, PLATFORM
+        ,COUNT(DISTINCT ACCOUNT_UID) AS dau
+        ,SUM(NUM_GAME_START) AS total_games
+        ,SUM(GAME_LENGTH) AS total_game_time
+        ,SUM(NUM_AD_IMPRESSION_INTERSTITIAL) AS fs_imp
+        ,SUM(NUM_AD_IMPRESSION_BANNER) AS banner_imp
+        ,SUM(NUM_AD_IMPRESSION_REWARDED) AS reward_imp
+        FROM TDS_DB.PUBLIC.F_USER_ACTIVITY
+        WHERE APPLICATION = '${analyticalName}'
+          AND DATE(DT) BETWEEN DATEADD('day',-${days},CURRENT_DATE) AND DATEADD('day',-1,CURRENT_DATE)
+        GROUP BY 1,2
+      )
+      SELECT DT, PLATFORM, DAU
+      ,TOTAL_GAMES/NULLIF(DAU,0)::double AS games_per_dau
+      ,TOTAL_GAME_TIME/NULLIF(DAU,0)::double AS game_time_per_dau
+      ,FS_IMP/NULLIF(DAU,0)::double AS fs_imp_per_dau
+      ,BANNER_IMP/NULLIF(DAU,0)::double AS banner_imp_per_dau
+      ,REWARD_IMP/NULLIF(DAU,0)::double AS reward_imp_per_dau
+      FROM base ORDER BY 1,2
+    `, 'f_user_activity');
+    const rows = fuaData.rows || [];
+    const badge = rows.length > 0 ? '<span class="badge b-green">✓ Data found</span>' : '<span class="badge b-red">✗ No data</span>';
+    const computeSummaries_fua = (fRows) => {
+      const peakRow = fRows.reduce((best,r) => (parseInt(r.DAU||0) > parseInt(best.DAU||0) ? r : best), fRows[0] || {});
+      const avgGames = fRows.length ? (fRows.reduce((s,r)=>s+(parseFloat(r.GAMES_PER_DAU)||0),0)/fRows.length).toFixed(2) : '—';
+      const latest = fRows.length ? fRows[fRows.length-1].DT : null;
+      const plat = fRows[0]?.PLATFORM || 'all';
+      return [
+        { text: peakRow.DAU ? `Peak DAU (${plat}): ${parseInt(peakRow.DAU).toLocaleString()} on ${fmtVal(peakRow.DT)}` : 'No DAU data', bad: !peakRow.DAU },
+        { text: `Avg games/DAU: ${avgGames}` },
+        { text: latest ? `Latest data: ${fmtDate(latest)}` : 'No data', bad: !latest }
+      ];
+    };
+    html += mkCard('tds_db.public.f_user_activity', badge, computeSummaries_fua(rows),
+      mkTable(rows, [
+        {key:'DT',label:'Date'},{key:'PLATFORM',label:'Platform'},{key:'DAU',label:'DAU'},
+        {key:'GAMES_PER_DAU',label:'Games/DAU'},{key:'GAME_TIME_PER_DAU',label:'Game Time/DAU'},
+        {key:'FS_IMP_PER_DAU',label:'FS Imp/DAU'},{key:'BANNER_IMP_PER_DAU',label:'Banner Imp/DAU'},{key:'REWARD_IMP_PER_DAU',label:'Reward Imp/DAU'}
+      ]),
+      { rows, skipCols: ['DT','PLATFORM'], computeSummaries: computeSummaries_fua });
+  } catch(e) {
+    html += mkCard('tds_db.public.f_user_activity', '<span class="badge b-red">Error</span>', [{text:e.message, bad:true}], '');
+  }
+
+  // 7. f_installs
+  try {
+    const fiData = await runSF(`
+      WITH base AS (
+        SELECT INSTALL_DATE, PLATFORM
+        ,COUNT(DISTINCT COUNTRY_CODE) AS distinct_country
+        ,COUNT(DISTINCT SOURCE) AS distinct_source
+        ,COUNT(DISTINCT INSTALL_UID) AS num_installs
+        ,SUM(CPI_LIBRING) AS total_cpi_libring
+        ,SUM(CPI) AS total_cpi
+        FROM TDS_DB.PUBLIC.F_INSTALLS
+        WHERE APP_NAME = '${analyticalName}'
+          AND INSTALL_DATE BETWEEN DATEADD('day',-${days},CURRENT_DATE) AND DATEADD('day',-1,CURRENT_DATE)
+        GROUP BY 1,2
+      )
+      SELECT INSTALL_DATE, PLATFORM, NUM_INSTALLS, DISTINCT_COUNTRY, DISTINCT_SOURCE
+      ,TOTAL_CPI_LIBRING/NULLIF(NUM_INSTALLS,0)::double AS cpi_libring_per_install
+      ,TOTAL_CPI
+      FROM base ORDER BY 1,2
+    `, 'f_installs');
+    const rows = fiData.rows || [];
+    const badge = rows.length > 0 ? '<span class="badge b-green">✓ Data found</span>' : '<span class="badge b-red">✗ No data</span>';
+    const computeSummaries_fi = (fRows) => {
+      const total = fRows.reduce((s,r) => s+(parseInt(r.NUM_INSTALLS)||0), 0);
+      const maxC  = Math.max(0, ...fRows.map(r => parseInt(r.DISTINCT_COUNTRY)||0));
+      const hasCPI = fRows.some(r => parseFloat(r.TOTAL_CPI) > 0);
+      return [
+        { text: `Total installs (L${days}D): ${total.toLocaleString()}`, bad: total === 0 },
+        { text: `Max country reach in a day: ${maxC}` },
+        { text: `UA spend (CPI): ${hasCPI ? '✓ Flowing' : '⚠ Not flowing yet'}`, warn: !hasCPI }
+      ];
+    };
+    html += mkCard('tds_db.public.f_installs', badge, computeSummaries_fi(rows),
+      mkTable(rows, [
+        {key:'INSTALL_DATE',label:'Date'},{key:'PLATFORM',label:'Platform'},{key:'NUM_INSTALLS',label:'Installs'},
+        {key:'DISTINCT_COUNTRY',label:'Countries'},{key:'DISTINCT_SOURCE',label:'Sources'},
+        {key:'CPI_LIBRING_PER_INSTALL',label:'CPI Libring/Install'},{key:'TOTAL_CPI',label:'Total CPI'}
+      ]),
+      { rows, skipCols: ['INSTALL_DATE','PLATFORM'], computeSummaries: computeSummaries_fi });
+  } catch(e) {
+    html += mkCard('tds_db.public.f_installs', '<span class="badge b-red">Error</span>', [{text:e.message, bad:true}], '');
+  }
+
+  // 8. f_user_revenue
+  try {
+    const furData = await runSF(`
+      WITH base AS (
+        SELECT DATE, PLATFORM
+        ,COUNT(DISTINCT ACCOUNT_UID) AS total_user
+        ,SUM(REVENUE) AS total_revenue
+        ,SUM(IMPRESSIONS) AS total_impression
+        ,COUNT(DISTINCT CASE WHEN PLACEMENT='inter' THEN ACCOUNT_UID END) AS user_inter
+        ,SUM(CASE WHEN PLACEMENT='inter' THEN REVENUE END) AS rev_inter
+        ,SUM(CASE WHEN PLACEMENT='inter' THEN IMPRESSIONS END) AS imp_inter
+        ,COUNT(DISTINCT CASE WHEN PLACEMENT='banner' THEN ACCOUNT_UID END) AS user_banner
+        ,SUM(CASE WHEN PLACEMENT='banner' THEN REVENUE END) AS rev_banner
+        ,COUNT(DISTINCT CASE WHEN PLACEMENT='reward' THEN ACCOUNT_UID END) AS user_reward
+        ,SUM(CASE WHEN PLACEMENT='reward' THEN REVENUE END) AS rev_reward
+        FROM TDS_DB.PUBLIC.F_USER_REVENUE
+        WHERE APP = '${analyticalName}'
+          AND DATE BETWEEN DATEADD('day',-${days},CURRENT_DATE) AND DATEADD('day',-1,CURRENT_DATE)
+        GROUP BY 1,2
+      )
+      SELECT DATE, PLATFORM
+      ,TOTAL_REVENUE
+      ,TOTAL_REVENUE/NULLIF(TOTAL_USER,0)::double AS arpdau
+      ,TOTAL_REVENUE/NULLIF(TOTAL_IMPRESSION,0)*1000 AS cpm
+      ,REV_INTER/NULLIF(USER_INTER,0)::double AS fs_arpdau
+      ,REV_BANNER/NULLIF(USER_BANNER,0)::double AS banner_arpdau
+      ,REV_REWARD/NULLIF(USER_REWARD,0)::double AS reward_arpdau
+      FROM base ORDER BY 1,2
+    `, 'f_user_revenue');
+    const rows = furData.rows || [];
+    const computeSummaries_fur = (fRows) => {
+      const totalRev = fRows.reduce((s,r) => s+(parseFloat(r.TOTAL_REVENUE)||0), 0);
+      const withARPDAU = fRows.filter(r=>r.ARPDAU && parseFloat(r.ARPDAU));
+      const avgARPDAU = withARPDAU.length
+        ? (withARPDAU.reduce((s,r)=>s+(parseFloat(r.ARPDAU)||0),0)/withARPDAU.length).toFixed(4) : '—';
+      const totalReward = fRows.reduce((s,r) => s+(parseFloat(r.REV_REWARD)||0), 0);
+      const totalInter  = fRows.reduce((s,r) => s+(parseFloat(r.REV_INTER)||0), 0);
+      const topPlacement = totalReward > totalInter ? 'Rewarded' : 'Interstitial';
+      return [
+        { text: `Total revenue (L${days}D): $${totalRev.toFixed(2)}`, bad: totalRev === 0 },
+        { text: `Avg ARPDAU: $${avgARPDAU}` },
+        { text: `Top placement by revenue: ${topPlacement}` }
+      ];
+    };
+    const badge = rows.length > 0 ? '<span class="badge b-green">✓ Data found</span>' : '<span class="badge b-red">✗ No data</span>';
+    html += mkCard('tds_db.public.f_user_revenue', badge, computeSummaries_fur(rows),
+      mkTable(rows, [
+        {key:'DATE',label:'Date'},{key:'PLATFORM',label:'Platform'},
+        {key:'TOTAL_REVENUE',label:'Revenue'},{key:'ARPDAU',label:'ARPDAU'},{key:'CPM',label:'CPM'},
+        {key:'FS_ARPDAU',label:'FS ARPDAU'},{key:'BANNER_ARPDAU',label:'Banner ARPDAU'},{key:'REWARD_ARPDAU',label:'Reward ARPDAU'}
+      ]),
+      { rows, skipCols: ['DATE','PLATFORM'], computeSummaries: computeSummaries_fur });
+  } catch(e) {
+    html += mkCard('tds_db.public.f_user_revenue', '<span class="badge b-red">Error</span>', [{text:e.message, bad:true}], '');
+  }
+
+  // 9. f_release_monitoring_hourly
+  try {
+    const frmData = await runSF(`
+      SELECT DATE(DT) AS DT, PLATFORM
+      ,SUM(ACTIVE_USERS) AS active_users
+      ,SUM(GAMES) AS total_games
+      ,MEDIAN(APPROX_PERCENTILE_ESTIMATE(APP_START_TIME_PERC_ACCUM, 0.5)) AS median_app_load_ms
+      ,SUM(RETURN_D1) AS d1_returns
+      ,SUM(CRASH_FATAL_COUNT) AS fatal_crashes
+      ,SUM(CRASH_FATAL_USERS) AS fatal_crash_users
+      ,SUM(CRASH_NON_FATAL_COUNT) AS non_fatal_crashes
+      ,SUM(INTERSTITIAL_REVENUE) AS inter_rev
+      ,SUM(BANNER_REVENUE) AS banner_rev
+      ,SUM(REWARDED_REVENUE) AS reward_rev
+      ,SUM(SUCCESSFUL_INTERSTITIAL_REQUESTS)/NULLIF(SUM(INTERSTITIAL_REQUESTS),0)::double AS inter_fill_rate
+      ,SUM(SUCCESSFUL_REWARDED_REQUESTS)/NULLIF(SUM(REWARDED_REQUESTS),0)::double AS reward_fill_rate
+      FROM TDS_DB.PUBLIC.F_RELEASE_MONITORING_HOURLY
+      WHERE APPLICATION_NAME = '${analyticalName}'
+        AND DATE(DT) BETWEEN DATEADD('day',-${days},CURRENT_DATE) AND DATEADD('day',-1,CURRENT_DATE)
+      GROUP BY 1,2 ORDER BY 1,2
+    `, 'f_release_monitoring_hourly');
+    const rows = frmData.rows || [];
+    const computeSummaries_frm = (fRows) => {
+      const totalFatal = fRows.reduce((s,r) => s+(parseInt(r.FATAL_CRASHES)||0), 0);
+      const withLoad = fRows.filter(r=>r.MEDIAN_APP_LOAD_MS && parseFloat(r.MEDIAN_APP_LOAD_MS));
+      const avgLoad = withLoad.length
+        ? (withLoad.reduce((s,r)=>s+(parseFloat(r.MEDIAN_APP_LOAD_MS)||0),0)/withLoad.length/1000).toFixed(1) : '—';
+      const withFill = fRows.filter(r=>r.REWARD_FILL_RATE);
+      const latestFillRate = withFill.length
+        ? (parseFloat(withFill[withFill.length-1].REWARD_FILL_RATE||0)*100).toFixed(0) : '—';
+      return [
+        { text: `Total fatal crashes (L${days}D): ${totalFatal}`, bad: totalFatal > 10, warn: totalFatal > 0 && totalFatal <= 10 },
+        { text: `Avg app load time: ${avgLoad}s`, warn: parseFloat(avgLoad) > 5 },
+        { text: `Latest reward fill rate: ${latestFillRate}%` }
+      ];
+    };
+    const badge = rows.length > 0 ? '<span class="badge b-green">✓ Data found</span>' : '<span class="badge b-red">✗ No data</span>';
+    html += mkCard('tds_db.public.f_release_monitoring_hourly', badge, computeSummaries_frm(rows),
+      mkTable(rows, [
+        {key:'DT',label:'Date'},{key:'PLATFORM',label:'Platform'},{key:'ACTIVE_USERS',label:'Active Users'},
+        {key:'TOTAL_GAMES',label:'Games'},{key:'D1_RETURNS',label:'D1 Returns'},
+        {key:'FATAL_CRASHES',label:'Fatal Crashes'},{key:'FATAL_CRASH_USERS',label:'Fatal Crash Users'},{key:'NON_FATAL_CRASHES',label:'Non-Fatal'},
+        {key:'MEDIAN_APP_LOAD_MS',label:'App Load (ms)'},
+        {key:'INTER_REV',label:'Inter Rev'},{key:'BANNER_REV',label:'Banner Rev'},{key:'REWARD_REV',label:'Reward Rev'},
+        {key:'INTER_FILL_RATE',label:'Inter Fill'},{key:'REWARD_FILL_RATE',label:'Reward Fill'}
+      ]),
+      { rows, skipCols: ['DT','PLATFORM'], computeSummaries: computeSummaries_frm });
+  } catch(e) {
+    html += mkCard('tds_db.public.f_release_monitoring_hourly', '<span class="badge b-red">Error</span>', [{text:e.message, bad:true}], '');
+  }
+
+  // 10. f_tech_performance_hourly
+  try {
+    const ftpData = await runSF(`
+      WITH base AS (
+        SELECT DATE(EVENT_DATE) AS EVENT_DATE, PLATFORM
+        ,COUNT(DISTINCT DEVICE_MODEL) AS distinct_device_model
+        ,SUM(COUNT_ACTIVE_USER) AS active_user
+        ,SUM(SUM_APP_OPEN_TIME_FIRST)/NULLIF(SUM(COUNT_APP_OPEN_TIME_FIRST),0)::double AS app_open_first_ms
+        ,SUM(SUM_APP_OPEN_TIME_RETURNING)/NULLIF(SUM(COUNT_APP_OPEN_TIME_RETURNING),0)::double AS app_open_return_ms
+        ,SUM(SUM_MEMORY_FREE)/NULLIF(SUM(COUNT_MEMORY_FREE),0)::double AS memory_free
+        ,SUM(SUM_MEMORY_USED)/NULLIF(SUM(COUNT_MEMORY_USED),0)::double AS memory_used
+        ,SUM(COUNT_CRASHES) AS total_crash
+        FROM TDS_DB.PUBLIC.F_TECH_PERFORMANCE_HOURLY
+        WHERE APPLICATION_NAME = '${analyticalName}'
+          AND DATE(EVENT_DATE) BETWEEN DATEADD('day',-${days},CURRENT_DATE) AND DATEADD('day',-1,CURRENT_DATE)
+        GROUP BY 1,2
+      )
+      SELECT * FROM base ORDER BY 1,2
+    `, 'f_tech_performance_hourly');
+    const rows = ftpData.rows || [];
+    const computeSummaries_ftp = (fRows) => {
+      const totalCrashes = fRows.reduce((s,r)=>s+(parseInt(r.TOTAL_CRASH)||0),0);
+      const withOpen = fRows.filter(r=>r.APP_OPEN_FIRST_MS && parseFloat(r.APP_OPEN_FIRST_MS));
+      const avgOpenFirst = withOpen.length
+        ? (withOpen.reduce((s,r)=>s+(parseFloat(r.APP_OPEN_FIRST_MS)||0),0)/withOpen.length/1000).toFixed(1) : '—';
+      const maxDevices = Math.max(0,...fRows.map(r=>parseInt(r.DISTINCT_DEVICE_MODEL)||0));
+      return [
+        { text: `Avg app open time / first launch: ${avgOpenFirst}s`, warn: parseFloat(avgOpenFirst) > 5 },
+        { text: `Total crashes: ${totalCrashes.toLocaleString()}`, bad: totalCrashes > 100, warn: totalCrashes > 10 && totalCrashes <= 100 },
+        { text: `Max distinct device models: ${maxDevices}` }
+      ];
+    };
+    const badge = rows.length > 0 ? '<span class="badge b-green">✓ Data found</span>' : '<span class="badge b-red">✗ No data</span>';
+    html += mkCard('tds_db.public.f_tech_performance_hourly', badge, computeSummaries_ftp(rows),
+      mkTable(rows, [
+        {key:'EVENT_DATE',label:'Date'},{key:'PLATFORM',label:'Platform'},{key:'ACTIVE_USER',label:'Active Users'},
+        {key:'DISTINCT_DEVICE_MODEL',label:'Device Models'},
+        {key:'APP_OPEN_FIRST_MS',label:'Open (First) ms'},{key:'APP_OPEN_RETURN_MS',label:'Open (Return) ms'},
+        {key:'MEMORY_FREE',label:'Memory Free'},{key:'MEMORY_USED',label:'Memory Used'},
+        {key:'TOTAL_CRASH',label:'Crashes'}
+      ]),
+      { rows, skipCols: ['EVENT_DATE','PLATFORM'], computeSummaries: computeSummaries_ftp });
+  } catch(e) {
+    html += mkCard('tds_db.public.f_tech_performance_hourly', '<span class="badge b-red">Error</span>', [{text:e.message, bad:true}], '');
+  }
+
+  // 11. f_levels
+  try {
+    const flData = await runSF(`
+      SELECT ACTIVITY_DATE, PLATFORM
+      ,COUNT(DISTINCT LEVEL) AS unique_levels
+      ,COUNT(DISTINCT ACCOUNT_UID) AS total_user
+      ,MAX(LEVEL) AS max_level
+      ,SUM(GAMES_FINISHED) AS total_games_finished
+      ,SUM(
+        GAME_LENGTH:abandon::int + GAME_LENGTH:complete::int +
+        GAME_LENGTH:draw::int + GAME_LENGTH:lost::int + GAME_LENGTH:won::int
+      ) AS total_game_length
+      ,SUM(CASE WHEN COINS_USAGE IS NOT NULL THEN 1 ELSE NULL END) AS coins_usage_rows
+      ,SUM(INTERSTITIAL_IMPRESSIONS) AS inter_imp
+      ,SUM(BANNER_IMPRESSIONS) AS banner_imp
+      ,SUM(REWARDED_IMPRESSIONS) AS reward_imp
+      ,SUM(INTERSTITIAL_REVENUE) AS inter_rev
+      ,SUM(BANNER_REVENUE) AS banner_rev
+      ,SUM(REWARDED_REVENUE) AS reward_rev
+      FROM TDS_DB.PUBLIC.F_LEVELS
+      WHERE APPLICATION_NAME = '${analyticalName}'
+        AND DATE(ACTIVITY_DATE) BETWEEN DATEADD('day',-${days},CURRENT_DATE) AND DATEADD('day',-1,CURRENT_DATE)
+      GROUP BY 1,2 ORDER BY 1,2
+    `, 'f_levels');
+    const rows = flData.rows || [];
+    const computeSummaries_fl = (fRows) => {
+      const totalFinished = fRows.reduce((s,r)=>s+(parseInt(r.TOTAL_GAMES_FINISHED)||0),0);
+      const maxUniqLevels = fRows.length ? Math.max(0,...fRows.map(r=>parseInt(r.UNIQUE_LEVELS)||0)) : 0;
+      const coinsRows = fRows.reduce((s,r)=>s+(parseInt(r.COINS_USAGE_ROWS)||0),0);
+      return [
+        { text: `Total games finished (L${days}D): ${totalFinished.toLocaleString()}`, bad: totalFinished === 0 },
+        { text: `Max unique levels in a day: ${maxUniqLevels}` },
+        { text: `Coins usage rows: ${coinsRows > 0 ? coinsRows.toLocaleString() + ' — economy active' : '0 — economy not active yet'}`, warn: coinsRows === 0 }
+      ];
+    };
+    const badge = rows.length > 0 ? '<span class="badge b-green">✓ Data found</span>' : '<span class="badge b-red">✗ No data</span>';
+    html += mkCard('tds_db.public.f_levels', badge, computeSummaries_fl(rows),
+      mkTable(rows, [
+        {key:'ACTIVITY_DATE',label:'Date'},{key:'PLATFORM',label:'Platform'},
+        {key:'TOTAL_USER',label:'Users'},{key:'UNIQUE_LEVELS',label:'Unique Levels'},{key:'MAX_LEVEL',label:'Max Level'},
+        {key:'TOTAL_GAMES_FINISHED',label:'Games Finished'},{key:'TOTAL_GAME_LENGTH',label:'Total Game Length'},
+        {key:'COINS_USAGE_ROWS',label:'Coins Usage Rows'},
+        {key:'INTER_IMP',label:'Inter Imp'},{key:'BANNER_IMP',label:'Banner Imp'},{key:'REWARD_IMP',label:'Reward Imp'},
+        {key:'INTER_REV',label:'Inter Rev'},{key:'BANNER_REV',label:'Banner Rev'},{key:'REWARD_REV',label:'Reward Rev'}
+      ]),
+      { rows, skipCols: ['ACTIVITY_DATE','PLATFORM'], computeSummaries: computeSummaries_fl });
+  } catch(e) {
+    html += mkCard('tds_db.public.f_levels', '<span class="badge b-red">Error</span>', [{text:e.message, bad:true}], '');
+  }
+
+  // ════════════════════════════════════════════════
+  // TIER 3 — Further Enhancement (Planned)
+  // ════════════════════════════════════════════════
+  html += `<div class="tier-header">⚪ Tier 3 — Further Enhancement (Planned)</div>`;
+  const tier3 = [
+    { group: 'QA Related', tables: ['f_qa_automation', 'f_live_telemetry'] },
+    { group: 'Experimentation', tables: ['f_ab_participations'] }
+  ];
+  tier3.forEach(g => {
+    g.tables.forEach(t => {
+      html += `<div class="dq-check">
+        <div class="dq-check-header">
+          <span class="dq-check-title">tds_db.public.${t}</span>
+          <span class="badge b-gray">${g.group}</span>
+          <span class="badge b-gray">Planned</span>
+        </div>
+        <div class="dq-placeholder">Check not yet implemented — queued for future enhancement.</div>
+      </div>`;
+    });
+  });
+
+  el.innerHTML = `<div class="chips">
+    <span class="badge b-gray">L${days}D · ${analyticalName}</span>
+  </div>` + html;
+
+  // Show platform filter and reset to All
+  const pfBar = document.getElementById('dq-platform-filter');
+  if (pfBar) pfBar.style.display = 'flex';
+  document.querySelectorAll('.pf-btn').forEach(b => b.classList.remove('active'));
+  const allBtn = document.querySelector('.pf-btn[onclick*="all"]');
+  if (allBtn) allBtn.classList.add('active');
+}
+
+// ════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════
+refresh();
+</script>
+</body>
+</html>
