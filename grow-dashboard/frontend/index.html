@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GROW Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+
+<div class="header">
+  <div class="header-top">
+    <div class="header-title-block">
+      <h1>GROW</h1>
+      <span class="header-subtitle">Game Release Onboarding Workflow</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:16px">
+      <span class="last-updated" id="last-updated">—</span>
+      <span class="user-badge" id="user-badge"></span>
+    </div>
+  </div>
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('radar')">Game Release</button>
+    <button class="tab-btn" onclick="switchTab('week')">ETL Process</button>
+    <button class="tab-btn" onclick="switchTab('dq')">Data Quality</button>
+  </div>
+</div>
+
+<div class="main">
+  <div class="status-bar">
+    <div class="dot loading" id="status-dot"></div>
+    <span id="status-text">Loading...</span>
+    <button class="btn btn-refresh" onclick="refresh()" style="margin-left:auto">↺ Refresh</button>
+  </div>
+
+  <!-- ── GAME RADAR ── -->
+  <div class="tab-pane active" id="tab-radar">
+    <div id="radar-issues"></div>
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Upcoming Releases</div>
+          <div class="card-sub">Snowflake · Jira</div>
+        </div>
+        <div class="chips" id="radar-chips" style="padding:0;border:none;background:transparent;gap:6px"></div>
+      </div>
+      <div class="filter-row" id="studio-filter" style="display:none">
+        <span class="filter-label">Studio</span>
+        <div id="studio-chips"></div>
+      </div>
+      <div class="overflow-x">
+        <div id="radar-table"><div class="loading-state"><div class="spinner"></div> Loading...</div></div>
+      </div>
+    </div>
+    <div class="card" id="released-card" style="margin-top:16px;display:none">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Now Live</div>
+          <div class="card-sub">Games past their soft launch date</div>
+        </div>
+        <div class="chips" id="released-chips" style="padding:0;border:none;background:transparent;gap:6px"></div>
+      </div>
+      <div class="overflow-x">
+        <div id="released-table"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── ETL PROCESS (read-only) ── -->
+  <div class="tab-pane" id="tab-week">
+    <div class="card week-banner">
+      <div class="card-header">
+        <div>
+          <div class="card-title">ETL Process</div>
+          <div class="card-sub" id="week-label"></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <div id="week-summary-chips" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+          <button id="refresh-jira-btn" class="btn btn-refresh" onclick="refreshJira()" style="font-size:11px;padding:4px 10px;white-space:nowrap">↺ Refresh Jira</button>
+        </div>
+      </div>
+      <div class="filter-row" id="week-studio-filter" style="display:none">
+        <span class="filter-label">Studio</span>
+        <div id="week-studio-chips" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+      </div>
+      <div id="week-table"><div class="loading-state"><div class="spinner"></div></div></div>
+    </div>
+  </div>
+
+  <!-- ── DATA QUALITY ── -->
+  <div class="tab-pane" id="tab-dq">
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Data Quality Checks</div>
+          <div class="card-sub">Run checks across Snowflake tables for a specific game</div>
+        </div>
+      </div>
+      <div class="dq-controls">
+        <select class="dq-select" id="dq-game"><option value="">Select a game...</option></select>
+        <select class="dq-select" id="dq-days">
+          <option value="7">Last 7 days</option>
+          <option value="14">Last 14 days</option>
+          <option value="30">Last 30 days</option>
+        </select>
+        <button class="btn btn-run" onclick="runDQ(false)">▶ Run Checks</button>
+        <button class="btn btn-refresh" onclick="runDQ(true)" title="Bypass cache and recompute live">↺</button>
+        <div class="dq-platform-filter" id="dq-platform-filter">
+          <span style="font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.04em">Platform</span>
+          <button class="pf-btn active" onclick="filterDQPlatform('all',this)">All</button>
+          <button class="pf-btn" onclick="filterDQPlatform('android',this)">Android</button>
+          <button class="pf-btn" onclick="filterDQPlatform('ios',this)">iOS</button>
+        </div>
+      </div>
+      <div class="overflow-x">
+        <div id="dq-results"><div class="empty-state">Select a game above and click Run Checks</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
